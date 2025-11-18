@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>South America Route Map</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+
+  <div id="map"></div>
+
+  <div id="total-spent-box">
+    총 사용 금액: <span id="total-spent">0</span> 원
+  </div>
+
+  <div id="timeline-panel">
+    <h4>여행 타임라인</h4>
+    <div id="timeline-box"></div>
+  </div>
+
+  <div id="map-buttons" class="button-panel">
+    <button id="btn-world">전체 보기</button>
+    <button id="btn-southamerica">남미 확대</button>
+  </div>
+
+  <!-- 도시 모달 -->
+  <div id="modal-city" class="modal hidden">
+    <div class="modal-content">
+      <h3 id="modal-city-title">도시 정보</h3>
+
+      <label>도시 이름</label>
+      <input id="city-name" type="text">
+
+      <label>DATE IN</label>
+      <input id="city-in" type="text">
+
+      <label>DATE OUT</label>
+      <input id="city-out" type="text">
+
+      <label>HOTEL</label>
+      <input id="city-hotel" type="text">
+
+      <div id="spent-list"></div>
+
+      <div class="spent-btn-wrap">
+        <button id="add-spent-item">지출 항목 추가</button>
+      </div>
+
+      <button id="city-save">저장</button>
+      <button id="city-connect">연결하기</button>
+      <button id="city-delete">삭제</button>
+      <button id="city-cancel">취소</button>
+
+      <div id="city-spent-total"
+           style="margin-top: 10px; font-weight: bold; color: #ffd34d;">
+        도시 지출 총합: 0원
+      </div>
+    </div>
+  </div>
+
+  <!-- 노선 모달 -->
+  <div id="modal-route" class="modal hidden">
+    <div class="modal-content">
+      <h3>노선 정보</h3>
+
+      <label>이동수단</label>
+      <select id="route-transport">
+        <option value="비행기">비행기</option>
+        <option value="버스">버스</option>
+        <option value="기차">기차</option>
+      </select>
+
+      <label>비용</label>
+      <input id="route-cost" type="text">
+
+      <label>메모</label>
+      <input id="route-note" type="text">
+
+      <button id="route-save">저장</button>
+      <button id="route-delete">삭제</button>
+      <button id="route-cancel">취소</button>
+    </div>
+  </div>
+
+  <!-- Firebase 초기화 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnyrAIXLAa9oE7Gf1kDck1MbH7-N-Fbi0",
+      authDomain: "south-america-772de.firebaseapp.com",
+      projectId: "south-america-772de",
+      storageBucket: "south-america-772de.firebasestorage.app",
+      messagingSenderId: "379842944876",
+      appId: "1:379842944876:web:26fd16296b425fdf99dd49",
+      measurementId: "G-EHC9B2EBC4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    window.db = getFirestore(app);
+  </script>
+
+  <!-- 메인 엔트리 (모든 모듈 연결) -->
+  <script type="module" src="./js/app.js"></script>
+
+</body>
+</html>
