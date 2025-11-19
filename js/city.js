@@ -145,40 +145,54 @@ export function setupCityEvents() {
   });
 
   map.on("mouseup", () => clearTimeout(longPressTimer));
-let touchStartPoint = null;
-let touchMoved = false;
 
-map.on("touchstart", (e) => {
-  const t = e.touches?.[0];
-  if (!t) return;
+  let touchMoved = false;
 
-  const pos = map.mouseEventToLatLng(t);
-  if (!pos) return;
+  map.on("touchstart", (e) => {
+    const t = e.touches?.[0];
+    if (!t) return;
+    console.log("touchstart 실행됨");
 
-  touchMoved = false;
-  longPressPos = [pos.lat, pos.lng];
+    // ★ 지도 드래그 잠시 비활성화 (롱프레스 감지용)
+    map.dragging.disable();
 
-  longPressTimer = setTimeout(() => {
-    if (!touchMoved) {
-      selectedCity = null;
-      document.getElementById("city-name").value = "";
-      document.getElementById("city-in").value = "";
-      document.getElementById("city-out").value = "";
-      document.getElementById("spent-list").innerHTML = "";
-      updateCitySpentPreview();
-      modalCity.classList.remove("hidden");
+    const pos = map.mouseEventToLatLng(t);
+    if (!pos) {
+      map.dragging.enable();
+      return;
     }
-  }, 1200);   // 모바일은 너무 길면 안 됨
-});
 
-map.on("touchmove", () => {
-  touchMoved = true;
-  clearTimeout(longPressTimer);
-});
+    touchMoved = false;
+    longPressPos = [pos.lat, pos.lng];
 
-map.on("touchend", () => {
-  clearTimeout(longPressTimer);
-});
+    longPressTimer = setTimeout(() => {
+      if (!touchMoved) {
+
+        console.log("====== LONG PRESS DETECTED ======");
+
+        selectedCity = null;
+        document.getElementById("city-name").value = "";
+        document.getElementById("city-in").value = "";
+        document.getElementById("city-out").value = "";
+        document.getElementById("spent-list").innerHTML = "";
+        updateCitySpentPreview();
+        modalCity.classList.remove("hidden");
+      }
+    }, 800);   // 0.8초가 모바일 롱프레스에 가장 안정적
+  });
+
+  map.on("touchmove", () => {
+    console.log("touchmove 실행됨");
+    touchMoved = true;
+    clearTimeout(longPressTimer);
+  });
+
+  map.on("touchend", () => {
+    console.log("touchend 실행됨");
+    clearTimeout(longPressTimer);
+    // ★ 터치 종료 → 지도 드래그 다시 활성화
+    map.dragging.enable();
+  });
   /* ---- 도시 저장 ---- */
   document.getElementById("city-save").onclick = async () => {
     const name = document.getElementById("city-name").value;
