@@ -18,13 +18,13 @@ let longPressPos = null;
 let connectMode = false;
 let connectFromCityId = null;
 
-// ⭐ 마우스 프리뷰 라인
+// ⭐ 마우스 프리뷰 라인Q
 let previewLine = null;
 
 const modalCity = document.getElementById("modal-city");
 const modalRoute = document.getElementById("modal-route");
 
-/* ================================
+/* ================================Q
    지출 목록 계산
 ================================ */
 function updateCitySpentPreview() {
@@ -145,24 +145,40 @@ export function setupCityEvents() {
   });
 
   map.on("mouseup", () => clearTimeout(longPressTimer));
+let touchStartPoint = null;
+let touchMoved = false;
 
-  map.on("touchstart", e => {
-    const t = e.latlng || e.touches?.[0];
-    longPressPos = [t.lat, t.lng];
+map.on("touchstart", (e) => {
+  const t = e.touches?.[0];
+  if (!t) return;
 
-    longPressTimer = setTimeout(() => {
+  const pos = map.mouseEventToLatLng(t);
+  if (!pos) return;
+
+  touchMoved = false;
+  longPressPos = [pos.lat, pos.lng];
+
+  longPressTimer = setTimeout(() => {
+    if (!touchMoved) {
       selectedCity = null;
       document.getElementById("city-name").value = "";
       document.getElementById("city-in").value = "";
       document.getElementById("city-out").value = "";
       document.getElementById("spent-list").innerHTML = "";
+      updateCitySpentPreview();
       modalCity.classList.remove("hidden");
-    }, 2000);
-  });
+    }
+  }, 1200);   // 모바일은 너무 길면 안 됨
+});
 
-  map.on("touchend", () => clearTimeout(longPressTimer));
-  map.on("touchmove", () => clearTimeout(longPressTimer));
+map.on("touchmove", () => {
+  touchMoved = true;
+  clearTimeout(longPressTimer);
+});
 
+map.on("touchend", () => {
+  clearTimeout(longPressTimer);
+});
   /* ---- 도시 저장 ---- */
   document.getElementById("city-save").onclick = async () => {
     const name = document.getElementById("city-name").value;

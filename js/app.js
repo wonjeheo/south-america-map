@@ -34,3 +34,9 @@ document.getElementById("btn-southamerica").onclick = () => {
     });
   });
 };
+document.querySelectorAll("button").forEach(btn => {
+  btn.addEventListener("touchstart", e => {
+    e.stopPropagation();
+    btn.click();
+  });
+});
