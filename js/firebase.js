@@ -4,13 +4,13 @@ import {
   getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where 
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 
-// 🔥 인증 관련 기능 추가 import
+// 🔥 setPersistence, browserLocalPersistence 추가됨
 import { 
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, 
+  signOut, onAuthStateChanged, getRedirectResult,
+  setPersistence, browserLocalPersistence 
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-// 🔥 기존에 만드신 apikeys.js에서 가져오거나, 그냥 여기에 다시 적어도 안전합니다!
-// (왜냐하면 위에서 Rules로 문을 잠갔으니까요)
 const firebaseConfig = {
    apiKey: "AIzaSyAnyrAIXLAa9oE7Gf1kDck1MbH7-N-Fbi0",
    authDomain: "south-america-772de.firebaseapp.com",
@@ -23,10 +23,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app); // 인증 객체 생성
+const auth = getAuth(app);
 
-// 외부에서 쓸 수 있게 export
+// export 목록에도 추가
 export {
-  db, auth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+  db, auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, 
+  signOut, onAuthStateChanged, getRedirectResult,
+  setPersistence, browserLocalPersistence,
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where
 };
