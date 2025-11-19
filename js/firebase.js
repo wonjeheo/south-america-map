@@ -6,7 +6,7 @@ import {
 
 // 🔥 인증 관련 기능 추가 import
 import { 
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
+  getAuth, GoogleAuthProvider, signInWithRedirect, signOut, onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
 // 🔥 기존에 만드신 apikeys.js에서 가져오거나, 그냥 여기에 다시 적어도 안전합니다!
@@ -27,6 +27,7 @@ const auth = getAuth(app); // 인증 객체 생성
 
 // 외부에서 쓸 수 있게 export
 export {
-  db, auth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+  // 🔥 여기도 수정
+  db, auth, GoogleAuthProvider, signInWithRedirect, signOut, onAuthStateChanged,
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where
 };

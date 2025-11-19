@@ -5,7 +5,7 @@ import { loadRoutes, updateTotalSpent, setupRouteEvents } from "./route.js";
 import { updateTimelineUI } from "./timeline.js";
 import { map } from "./map.js";
 import { routeLines } from "./route.js";
-import { auth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "./firebase.js";
+import { auth, GoogleAuthProvider, signInWithRedirect, signOut, onAuthStateChanged } from "./firebase.js";
 
 // 앱 초기화
 setupCityEvents();
@@ -50,10 +50,11 @@ const btnLogout = document.getElementById("btn-logout");
 btnLoginGoogle.onclick = async () => {
   const provider = new GoogleAuthProvider();
   try {
-    await signInWithPopup(auth, provider);
-    // 성공하면 onAuthStateChanged가 자동으로 UI 업데이트함
+    // 팝업 대신 페이지를 이동시킵니다.
+    // (이동하기 때문에 await가 끝나기를 기다릴 필요 없이 바로 페이지가 넘어갑니다)
+    await signInWithRedirect(auth, provider); 
   } catch (error) {
-    alert("로그인 실패: " + error.message);
+    alert("로그인 페이지 이동 실패: " + error.message);
   }
 };
 
