@@ -323,6 +323,104 @@ html, body {
   display: none;   /* 🔥 숨김 */
 }
 
+/* 기존 CSS 맨 아래에 추가하세요 */
+
+/* ============ 1. 로그인 인트로 화면 ============ */
+.login-screen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 20000; /* 가장 위에 뜸 */
+  
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  
+  transition: opacity 0.5s ease;
+}
+
+.login-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.login-box {
+  text-align: center;
+  color: white;
+  padding: 20px;
+}
+
+.login-box h1 {
+  margin-bottom: 10px;
+  font-size: 28px;
+  color: #ffd34d;
+}
+
+.login-box p {
+  margin-bottom: 30px;
+  color: #ccc;
+}
+
+.btn-login, .btn-guest {
+  display: block;
+  width: 100%;
+  max-width: 250px;
+  margin: 10px auto;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-login {
+  background: #4285F4;
+  color: white;
+}
+
+.btn-guest {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+
+/* ============ 2. 로그아웃 버튼 (작게 우측 상단) ============ */
+.floating-logout {
+  position: absolute;
+  top: 15px; right: 15px;
+  z-index: 9999;
+  background: rgba(255, 70, 70, 0.8);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.floating-logout.hidden {
+  display: none;
+}
+
+
+/* ============ 3. 게스트 모드 (Admin 버튼 숨기기) ============ */
+/* body에 'guest-mode' 클래스가 붙으면 .admin-only 요소는 다 사라짐 */
+body.guest-mode .admin-only {
+  display: none !important;
+}
+
+/* 게스트 모드일 때 input들은 입력 못하게 비활성화 하는 느낌 (선택사항) */
+body.guest-mode input, 
+body.guest-mode select {
+  pointer-events: none;
+  background: transparent;
+  border: none;
+}
+
 
 @media (max-width: 600px) {
 

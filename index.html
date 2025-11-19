@@ -3,25 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>South America Route Map</title>
-
   <link rel="stylesheet" href="style.css" />
-
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
-
 <body>
 
-  <!-- 로그인 버튼 추가 -->
-  <div id="auth-container" style="position: absolute; top: 10px; left: 10px; z-index: 9999;">
-    <button id="btn-login" style="background:white; padding:8px; border-radius:5px;">구글 로그인</button>
-    <button id="btn-logout" class="hidden" style="background:red; color:white; padding:8px; border-radius:5px;">로그아웃</button>
-    <span id="user-display" style="color:white; background:rgba(0,0,0,0.5); padding:4px;"></span>
+  <div id="login-overlay" class="login-screen">
+    <div class="login-box">
+      <h1>여행 지도 ✈️</h1>
+      <p>관리자는 로그인을, 방문자는 게스트 입장을 선택하세요.</p>
+      <button id="btn-login-google" class="btn-login">Google 로그인 (관리자)</button>
+      <button id="btn-guest" class="btn-guest">그냥 구경하기 (게스트)</button>
+    </div>
   </div>
+
+  <button id="btn-logout" class="floating-logout hidden">로그아웃</button>
 
   <div id="map"></div>
 
@@ -35,7 +34,7 @@
   </div>
 
   <div id="map-buttons" class="button-panel">
-    <button id="add-city-mobile" class="floating-add-btn">도시 추가</button>
+    <button id="add-city-mobile" class="floating-add-btn admin-only">도시 추가</button>
     <button id="btn-world">전체 보기</button>
     <button id="btn-southamerica">남미 확대</button>
   </div>
@@ -44,7 +43,6 @@
     <div class="overlay-text">지도에서 도시 위치를 선택하세요</div>
   </div>
   
-  <!-- 도시 모달 -->
   <div id="modal-city" class="modal hidden">
     <div class="modal-content">
       <h3 id="modal-city-title">도시 정보</h3>
@@ -63,27 +61,23 @@
 
       <div id="spent-list"></div>
 
-      <div class="spent-btn-wrap">
+      <div class="spent-btn-wrap admin-only">
         <button id="add-spent-item">지출 항목 추가</button>
       </div>
 
-      <button id="city-save">저장</button>
-      <button id="city-connect">연결하기</button>
-      <button id="city-delete">삭제</button>
-      <button id="city-cancel">취소</button>
-
-      <div id="city-spent-total"
-           style="margin-top: 10px; font-weight: bold; color: #ffd34d;">
+      <button id="city-save" class="admin-only">저장</button>
+      <button id="city-connect" class="admin-only">연결하기</button>
+      <button id="city-delete" class="admin-only">삭제</button>
+      <button id="city-cancel">닫기</button> <div id="city-spent-total" style="margin-top: 10px; font-weight: bold; color: #ffd34d;">
         도시 지출 총합: 0원
       </div>
     </div>
   </div>
 
-  <!-- 노선 모달 -->
   <div id="modal-route" class="modal hidden">
     <div class="modal-content">
       <h3>노선 정보</h3>
-
+      
       <label>이동수단</label>
       <select id="route-transport">
         <option value="비행기">비행기</option>
@@ -93,37 +87,24 @@
 
       <label>비용</label>
       <input id="route-cost" type="text">
-
       <label>메모</label>
       <input id="route-note" type="text">
 
-      <button id="route-save">저장</button>
-      <button id="route-delete">삭제</button>
-      <button id="route-cancel">취소</button>
+      <button id="route-save" class="admin-only">저장</button>
+      <button id="route-delete" class="admin-only">삭제</button>
+      <button id="route-cancel">닫기</button>
     </div>
   </div>
 
-  <!-- Firebase 초기화 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
     import { getFirestore } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAnyrAIXLAa9oE7Gf1kDck1MbH7-N-Fbi0",
-      authDomain: "south-america-772de.firebaseapp.com",
-      projectId: "south-america-772de",
-      storageBucket: "south-america-772de.firebasestorage.app",
-      messagingSenderId: "379842944876",
-      appId: "1:379842944876:web:26fd16296b425fdf99dd49",
-      measurementId: "G-EHC9B2EBC4"
-    };
+    import { firebaseConfig } from "./js/apikeys.js";
 
     const app = initializeApp(firebaseConfig);
     window.db = getFirestore(app);
   </script>
 
-  <!-- 메인 엔트리 (모든 모듈 연결) -->
   <script type="module" src="./js/app.js"></script>
-
 </body>
 </html>
