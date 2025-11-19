@@ -49,6 +49,15 @@ export function animateRoutesByCity(cityName) {
   }, 3000);
 }
 
+export function clearAllRouteEffects() {
+  Object.values(routeLines).forEach(r => {
+    if (r.line && r.line._path) {
+      r.line._path.classList.remove("route-highlight");
+      r.line._path.classList.remove("route-animate");
+    }
+  });
+}
+
 /* ============================================================
    Polyline 생성 (화살표 제거 버전)
 ============================================================ */

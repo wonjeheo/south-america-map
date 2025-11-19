@@ -3,9 +3,12 @@ import { db, collection, getDocs } from "./firebase.js";
 import { cityMarkers } from "./city.js";
 import { map } from "./map.js";
 import {
+  clearAllRouteEffects,
   highlightRoutesByCity,
-  unhighlightAllRoutes
+  unhighlightAllRoutes,
+  routeLines
 } from "./route.js";
+
 
 export async function buildRouteTimeline() {
   const snap = await getDocs(collection(db, "Routes"));
@@ -59,6 +62,7 @@ export async function updateTimelineUI() {
       ${t.start} ~ ${t.end}
     `;
 
+    /* --- 마우스 hover --- */
     div.onmouseenter = () => {
       const cityEntry = Object.values(cityMarkers)
         .find(c => c.data.City === t.city);
@@ -87,20 +91,38 @@ export async function updateTimelineUI() {
       unhighlightAllRoutes();
     };
 
+
+    /* --- 타임라인에서 도시 클릭 → flyTo(6) --- */
     div.onclick = () => {
-    const cityEntry = Object.values(cityMarkers)
+      const cityEntry = Object.values(cityMarkers)
         .find(c => c.data.City === t.city);
 
-    if (!cityEntry) return;
+      if (!cityEntry) return;
 
-    const pos = cityEntry.data.Coords;
+      const pos = cityEntry.data.Coords;
 
-    map.flyTo(pos, 6, {
-        animate: true,
-        duration: 1.2
-    });
+      // 🔥 1) 모든 라인 지도에서 제거 (진짜 remove)
+      const removedLines = [];
+      Object.values(routeLines).forEach(r => {
+        if (r.line) {
+          removedLines.push(r.line);
+          map.removeLayer(r.line);
+        }
+      });
 
+      // 🔥 2) 지도 이동
+      map.flyTo(pos, 6, { animate: true, duration: 1.2 });
 
+      // 🔥 3) zoom/moveend 후 다시 라인 추가
+      map.once("moveend", () => {
+        removedLines.forEach(line => {
+          line.addTo(map);
+        });
+
+        // 클릭한 도시 라인만 강조
+        clearAllRouteEffects();
+        highlightRoutesByCity(t.city);
+      });
     };
 
     box.appendChild(div);

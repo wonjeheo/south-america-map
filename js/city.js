@@ -1,32 +1,49 @@
-// --- REFACTORED city.js (spent box fix + unified events) ---
-// 모든 기능을 하나의 setupCityEvents()로 통합한 안정 버전
-
+// --- NEW city.js (Add-City with longpress + overlay) ---
 import { map, iconRed } from "./map.js";
 import {
   db, collection, addDoc, updateDoc, deleteDoc, doc,
   query, where, getDocs
 } from "./firebase.js";
-import { createRouteLine, updateTotalSpent } from "./route.js";
+import { updateTotalSpent } from "./route.js";
 import { updateTimelineUI } from "./timeline.js";
 import { routeLines } from "./route.js";
 
 export const cityMarkers = {};
 export let selectedCity = null;
 
-let longPressTimer = null;
-let longPressPos = null;
 let connectMode = false;
 let connectFromCityId = null;
 
-// ⭐ 마우스 프리뷰 라인Q
-let previewLine = null;
+// Add-city mode
+let isAddCityMode = false;
+let addCityPos = null;
 
+// Elements
 const modalCity = document.getElementById("modal-city");
 const modalRoute = document.getElementById("modal-route");
 
-/* ================================Q
-   지출 목록 계산
-================================ */
+const overlay = document.getElementById("add-city-overlay");
+
+/* ============================
+   Helper: Hide overlay
+============================ */
+function hideOverlay() {
+  overlay.classList.remove("visible");
+  overlay.classList.add("hidden");
+}
+
+/* ============================
+   Helper: Show overlay
+============================ */
+function showOverlay() {
+  overlay.classList.remove("hidden");
+  overlay.classList.add("visible");
+}
+
+
+/* ============================
+   지출 계산
+============================ */
 function updateCitySpentPreview() {
   const rows = document.querySelectorAll("#spent-list div");
   let total = 0;
@@ -48,24 +65,18 @@ function collectSpentList() {
   return arr;
 }
 
-/* ================================
+
+/* ============================
    Marker 생성
-================================ */
+============================ */
 export function createCityMarker(id, c) {
   const marker = L.marker(c.Coords, { icon: iconRed }).addTo(map);
 
   cityMarkers[id] = { id, data: c, marker };
 
   marker.on("click", () => {
-    /* ---- 연결 모드일 때 ---- */
     if (connectMode) {
       if (id === connectFromCityId) return;
-
-      if (previewLine) {
-        map.removeLayer(previewLine);
-        previewLine = null;
-      }
-
       window.routeFrom = connectFromCityId;
       window.routeTo = id;
 
@@ -78,7 +89,6 @@ export function createCityMarker(id, c) {
       return;
     }
 
-    /* ---- 일반 도시 클릭 ---- */
     selectedCity = id;
 
     document.getElementById("city-name").value = c.City;
@@ -108,9 +118,10 @@ export function createCityMarker(id, c) {
   });
 }
 
-/* ================================
+
+/* ============================
    DB Load
-================================ */
+============================ */
 export async function loadCities() {
   const snap = await getDocs(collection(db, "Cities"));
   snap.forEach(d => {
@@ -125,75 +136,66 @@ export async function loadCities() {
   });
 }
 
-/* ================================
-   이벤트 설정 (통합 버전)
-================================ */
+
+/* ============================
+   이벤트 설정
+============================ */
 export function setupCityEvents() {
 
-  /* ---- 롱프레스 → 도시 생성 ---- */
-  map.on("mousedown", e => {
-    longPressPos = [e.latlng.lat, e.latlng.lng];
-    longPressTimer = setTimeout(() => {
-      selectedCity = null;
-      document.getElementById("city-name").value = "";
-      document.getElementById("city-in").value = "";
-      document.getElementById("city-out").value = "";
-      document.getElementById("spent-list").innerHTML = "";
-      updateCitySpentPreview();
-      modalCity.classList.remove("hidden");
-    }, 2000);
+  /* ------------------------------------
+     🔥 도시 추가 버튼 → Overlay 표시
+  ------------------------------------ */
+  document.getElementById("add-city-mobile").onclick = () => {
+    isAddCityMode = true;
+    showOverlay();
+  };
+
+
+  /* ------------------------------------
+     🔥 Longpress(모바일+PC) → Add-city 모드
+  ------------------------------------ */
+  let pressTimer = null;
+
+  map.on("mousedown touchstart", () => {
+    if (isAddCityMode) return;
+
+    pressTimer = setTimeout(() => {
+      isAddCityMode = true;
+      showOverlay();
+    }, 600); // 600ms longpress
   });
 
-  map.on("mouseup", () => clearTimeout(longPressTimer));
-
-  let touchMoved = false;
-
-  map.on("touchstart", (e) => {
-    const t = e.touches?.[0];
-    if (!t) return;
-    console.log("touchstart 실행됨");
-
-    // ★ 지도 드래그 잠시 비활성화 (롱프레스 감지용)
-    map.dragging.disable();
-
-    const pos = map.mouseEventToLatLng(t);
-    if (!pos) {
-      map.dragging.enable();
-      return;
-    }
-
-    touchMoved = false;
-    longPressPos = [pos.lat, pos.lng];
-
-    longPressTimer = setTimeout(() => {
-      if (!touchMoved) {
-
-        console.log("====== LONG PRESS DETECTED ======");
-
-        selectedCity = null;
-        document.getElementById("city-name").value = "";
-        document.getElementById("city-in").value = "";
-        document.getElementById("city-out").value = "";
-        document.getElementById("spent-list").innerHTML = "";
-        updateCitySpentPreview();
-        modalCity.classList.remove("hidden");
-      }
-    }, 800);   // 0.8초가 모바일 롱프레스에 가장 안정적
+  map.on("mouseup touchend", () => {
+    clearTimeout(pressTimer);
   });
 
-  map.on("touchmove", () => {
-    console.log("touchmove 실행됨");
-    touchMoved = true;
-    clearTimeout(longPressTimer);
+
+  /* ------------------------------------
+     🔥 지도 클릭 → 좌표 선택 후 modal 열림
+  ------------------------------------ */
+  map.on("click", (e) => {
+    if (!isAddCityMode) return;
+
+    addCityPos = [e.latlng.lat, e.latlng.lng];
+
+    hideOverlay();
+
+    selectedCity = null;
+    document.getElementById("city-name").value = "";
+    document.getElementById("city-in").value = "";
+    document.getElementById("city-out").value = "";
+    document.getElementById("spent-list").innerHTML = "";
+
+    updateCitySpentPreview();
+    modalCity.classList.remove("hidden");
+
+    isAddCityMode = false;
   });
 
-  map.on("touchend", () => {
-    console.log("touchend 실행됨");
-    clearTimeout(longPressTimer);
-    // ★ 터치 종료 → 지도 드래그 다시 활성화
-    map.dragging.enable();
-  });
-  /* ---- 도시 저장 ---- */
+
+  /* ------------------------------------
+     도시 저장
+  ------------------------------------ */
   document.getElementById("city-save").onclick = async () => {
     const name = document.getElementById("city-name").value;
     const stayIn = document.getElementById("city-in").value;
@@ -201,10 +203,11 @@ export function setupCityEvents() {
     const spentArr = collectSpentList();
 
     if (!selectedCity) {
-      /* 신규 */
+      if (!addCityPos) return;
+
       const ref = await addDoc(collection(db, "Cities"), {
         City: name,
-        Coords: longPressPos,
+        Coords: addCityPos,
         Stay_in: stayIn,
         Stay_out: stayOut,
         Spent: spentArr
@@ -212,14 +215,16 @@ export function setupCityEvents() {
 
       createCityMarker(ref.id, {
         City: name,
-        Coords: longPressPos,
+        Coords: addCityPos,
         Stay_in: stayIn,
         Stay_out: stayOut,
         Spent: spentArr
       });
 
     } else {
-      /* 수정 */
+      const c = cityMarkers[selectedCity];
+      if (!c) return;
+
       await updateDoc(doc(db, "Cities", selectedCity), {
         City: name,
         Stay_in: stayIn,
@@ -227,11 +232,10 @@ export function setupCityEvents() {
         Spent: spentArr
       });
 
-      const c = cityMarkers[selectedCity].data;
-      c.City = name;
-      c.Stay_in = stayIn;
-      c.Stay_out = stayOut;
-      c.Spent = spentArr;
+      c.data.City = name;
+      c.data.Stay_in = stayIn;
+      c.data.Stay_out = stayOut;
+      c.data.Spent = spentArr;
     }
 
     modalCity.classList.add("hidden");
@@ -239,9 +243,15 @@ export function setupCityEvents() {
     updateTimelineUI();
   };
 
-  /* ---- 도시 삭제 ---- */
+
+  /* ------------------------------------
+     도시 삭제 (안전 체크 포함)
+  ------------------------------------ */
   document.getElementById("city-delete").onclick = async () => {
-    if (!selectedCity) return;
+    if (!selectedCity || !cityMarkers[selectedCity]) {
+      modalCity.classList.add("hidden");
+      return;
+    }
 
     const cityName = cityMarkers[selectedCity].data.City;
 
@@ -253,52 +263,42 @@ export function setupCityEvents() {
 
     for (let d of [...fromSnap.docs, ...toSnap.docs]) {
       const routeId = d.id;
-
       if (routeLines[routeId]) {
         map.removeLayer(routeLines[routeId].line);
         if (routeLines[routeId].numberMarker)
           map.removeLayer(routeLines[routeId].numberMarker);
         delete routeLines[routeId];
       }
-
       await deleteDoc(doc(db, "Routes", routeId));
     }
 
-    await deleteDoc(doc(db, "Cities", selectedCity));
     map.removeLayer(cityMarkers[selectedCity].marker);
     delete cityMarkers[selectedCity];
+    await deleteDoc(doc(db, "Cities", selectedCity));
 
     modalCity.classList.add("hidden");
     updateTotalSpent();
     updateTimelineUI();
   };
 
-  /* ---- 연결 모드 ---- */
+
+  /* ------------------------------------
+     연결 모드
+  ------------------------------------ */
   document.getElementById("city-connect").onclick = () => {
     connectMode = true;
     connectFromCityId = selectedCity;
-
-    if (previewLine) {
-      map.removeLayer(previewLine);
-      previewLine = null;
-    }
-
     modalCity.classList.add("hidden");
   };
 
-  /* ---- 취소 ---- */
   document.getElementById("city-cancel").onclick = () => {
     modalCity.classList.add("hidden");
-
-    if (previewLine) {
-      map.removeLayer(previewLine);
-      previewLine = null;
-    }
   };
 
-  /* ================================
-     지출 항목 추가 (이제 정상 통합됨)
-  ================================ */
+
+  /* ------------------------------------
+     지출 항목 추가
+  ------------------------------------ */
   const addSpentBtn = document.getElementById("add-spent-item");
 
   function addSpentRow() {
@@ -308,7 +308,6 @@ export function setupCityEvents() {
       <input type="number" class="spent-cost" placeholder="금액">
       <button class="spent-remove">X</button>
     `;
-
     row.querySelector(".spent-remove").onclick = () => row.remove();
     row.querySelector(".spent-cost").oninput = updateCitySpentPreview;
     row.querySelector(".spent-title").oninput = updateCitySpentPreview;
@@ -318,29 +317,29 @@ export function setupCityEvents() {
   }
 
   addSpentBtn.addEventListener("click", addSpentRow);
-  addSpentBtn.addEventListener("touchstart", e => { e.preventDefault(); addSpentRow(); });
 }
 
-/* ================================
-   Preview Line Follow Mouse
-================================ */
-map.on("mousemove", (e) => {
-  if (!connectMode || !connectFromCityId) return;
 
-  const fromCity = cityMarkers[connectFromCityId];
-  if (!fromCity) return;
+// ============================
+// 🔥 줌 레벨에 따라 마커 크기 조절
+// ============================
+map.on("zoomend", () => {
+  const zoom = map.getZoom();
 
-  const startPos = fromCity.marker.getLatLng();
-  const toPos = e.latlng;
+  // 줌 레벨에 따른 스케일 (원하면 변경 가능)
+  const scale = Math.max(0.5, Math.min(zoom / 6, 2)); 
+  // zoom 6일 때 scale=1(기본 크기), zoom 10이면 scale≈1.66, zoom 3이면 scale=0.5
 
-  if (!previewLine) {
-    previewLine = L.polyline([startPos, toPos], {
-      color: "#7a0a0aff",
-      weight: 7,
-      opacity: 0.7,
-      className: "preview-line"
-    }).addTo(map);
-  } else {
-    previewLine.setLatLngs([startPos, toPos]);
-  }
+  Object.values(cityMarkers).forEach(city => {
+    const baseSize = 40;  // iconRed의 기본 사이즈
+    const newSize = baseSize * scale;
+
+    const newIcon = L.icon({
+      iconUrl: city.marker.options.icon.options.iconUrl,
+      iconSize: [newSize, newSize],
+      iconAnchor: [newSize / 2, newSize],
+    });
+
+    city.marker.setIcon(newIcon);
+  });
 });

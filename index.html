@@ -13,6 +13,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 
+
 <body>
 
   <div id="map"></div>
@@ -27,10 +28,15 @@
   </div>
 
   <div id="map-buttons" class="button-panel">
+    <button id="add-city-mobile" class="floating-add-btn">도시 추가</button>
     <button id="btn-world">전체 보기</button>
     <button id="btn-southamerica">남미 확대</button>
   </div>
 
+  <div id="add-city-overlay" class="hidden">
+    <div class="overlay-text">지도에서 도시 위치를 선택하세요</div>
+  </div>
+  
   <!-- 도시 모달 -->
   <div id="modal-city" class="modal hidden">
     <div class="modal-content">

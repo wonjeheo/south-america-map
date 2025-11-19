@@ -6,10 +6,11 @@ export const transportColors = {
 };
 
 export const map = L.map("map", {
-  preferCanvas: true,
-  tap: false,              // 🔥 iOS 터치 충돌 해결
+  tap: false,
   touchZoom: true,
-  dragging: true
+  dragging: true,
+  zoomControl: true,
+  tapTolerance: 15,
 }).setView([-10, -65], 4.3);
 
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -21,4 +22,3 @@ export const iconRed = L.icon({
   iconSize: [40, 40],
   iconAnchor: [20, 40]
 });
-
