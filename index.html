@@ -16,6 +16,13 @@
 
 <body>
 
+  <!-- 로그인 버튼 추가 -->
+  <div id="auth-container" style="position: absolute; top: 10px; left: 10px; z-index: 9999;">
+    <button id="btn-login" style="background:white; padding:8px; border-radius:5px;">구글 로그인</button>
+    <button id="btn-logout" class="hidden" style="background:red; color:white; padding:8px; border-radius:5px;">로그아웃</button>
+    <span id="user-display" style="color:white; background:rgba(0,0,0,0.5); padding:4px;"></span>
+  </div>
+
   <div id="map"></div>
 
   <div id="total-spent-box">
