@@ -1,6 +1,7 @@
 // js/app.js
 
-import { loadCities, setupCityEvents, cityMarkers } from "./city.js";
+// 🔥 [수정됨] clockTargetCity 가져오기 (시계 타겟 확인용)
+import { loadCities, setupCityEvents, cityMarkers, clockTargetCity } from "./city.js";
 import { loadRoutes, updateTotalSpent, setupRouteEvents, routeLines } from "./route.js";
 import { updateTimelineUI } from "./timeline.js";
 import { map } from "./map.js";
@@ -56,8 +57,11 @@ document.querySelectorAll("button").forEach(btn => {
   });
 });
 
+
 /* ============================================================
-   3. 🕒 시계 기능 (한국 시간 vs 현지 시간)
+   3. 🕒 시계 기능 (수동 선택 우선 모드)
+   - 타임라인 클릭 시 해당 도시 시간 표시
+   - 클릭 없으면 오늘 날짜 여행지 시간 표시
 ============================================================ */
 function startClock() {
   const elKorea = document.getElementById("time-korea");
@@ -68,7 +72,7 @@ function startClock() {
   setInterval(() => {
     const now = new Date();
 
-    // 1. 한국 시간 (좌측 고정)
+    // 1. 한국 시간
     const koTime = now.toLocaleTimeString("ko-KR", {
       hour: "2-digit", minute: "2-digit", hour12: false,
       timeZone: "Asia/Seoul"
@@ -81,9 +85,9 @@ function startClock() {
     const dd = String(now.getDate()).padStart(2, '0');
     const todayStr = `${yyyy}-${mm}-${dd}`;
 
-    let targetCity = null;
+    let targetCity = clockTargetCity; 
 
-    if (cityMarkers) {
+    if (!targetCity && cityMarkers) {
       Object.values(cityMarkers).forEach(c => {
         const d = c.data;
         if (d.Stay_in <= todayStr && todayStr <= d.Stay_out) {
@@ -95,17 +99,25 @@ function startClock() {
     let localDate;
     
     if (targetCity) {
-      // ✈️ 여행 중: 도시 경도(Longitude)에 따라 자동 계산
+      // ✈️ 여행 중 or 선택됨
       const lng = targetCity.Coords[1]; 
-      const offsetHours = Math.round(lng / 15); 
+      
+      // 원래는 const였지만, 값을 수정해야 하므로 let으로 변경
+      let offsetHours = Math.round(lng / 15); 
+
+      // 🔥 [추가됨] 인천(또는 서울)인 경우 강제로 9(UTC+9)로 보정
+      if (targetCity.City === "인천" || targetCity.City === "서울") {
+        offsetHours = 9;
+      }
+
       const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
       localDate = new Date(utc + (3600000 * offsetHours));
       
       elLocal.textContent = `📍 ${targetCity.City} ${formatTime(localDate)}`;
-      elLocal.style.color = "#d90429"; // 붉은색 강조
+      elLocal.style.color = "#d90429"; 
 
     } else {
-      // 🏠 여행 기간 아님: 한국 시간(UTC+9)으로 표시
+      // 🏠 기본값: 한국 시간
       const defaultOffset = 9; 
       const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
       localDate = new Date(utc + (3600000 * defaultOffset));
@@ -117,7 +129,6 @@ function startClock() {
   }, 1000);
 }
 
-// 00:00 포맷 헬퍼 함수
 function formatTime(dateObj) {
   let h = dateObj.getHours();
   let m = dateObj.getMinutes();
@@ -155,9 +166,7 @@ btnLoginGoogle.onclick = async () => {
 
     if (error.code === 'auth/popup-blocked') {
       alert("브라우저 팝업 차단이 감지되었습니다. 설정에서 팝업을 허용해주시거나, 다른 브라우저를 사용해주세요.");
-    } else if (error.code === 'auth/cancelled-popup-request') {
-      // 사용자가 닫음 -> 무시
-    } else {
+    } else if (error.code !== 'auth/cancelled-popup-request') {
       alert("로그인 에러: " + error.message);
     }
   }

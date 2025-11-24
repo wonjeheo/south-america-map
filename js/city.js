@@ -1,4 +1,4 @@
-// --- NEW city.js (Add-City with longpress + overlay) ---
+// js/city.js
 import { map, iconRed } from "./map.js";
 import {
   db, collection, addDoc, updateDoc, deleteDoc, doc,
@@ -10,6 +10,15 @@ import { routeLines } from "./route.js";
 
 export const cityMarkers = {};
 export let selectedCity = null;
+
+/* ============================
+   🔥 [추가됨] 시계 타겟 도시 설정
+   (timeline.js에서 호출하여, 시계의 기준 도시를 바꿈)
+============================ */
+export let clockTargetCity = null;
+export function setClockTargetCity(c) {
+  clockTargetCity = c;
+}
 
 let connectMode = false;
 let connectFromCityId = null;

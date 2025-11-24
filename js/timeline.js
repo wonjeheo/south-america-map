@@ -1,6 +1,7 @@
 // js/timeline.js
 import { db, collection, getDocs } from "./firebase.js";
-import { cityMarkers } from "./city.js";
+// 🔥 [수정됨] setClockTargetCity 가져오기
+import { cityMarkers, setClockTargetCity } from "./city.js"; 
 import { map } from "./map.js";
 import {
   clearAllRouteEffects,
@@ -10,6 +11,10 @@ import {
 } from "./route.js";
 
 
+/* ============================================================
+   (안 쓰이는 함수지만 호환성을 위해 유지)
+   경로 연결 순서대로 타임라인 빌드
+============================================================ */
 export async function buildRouteTimeline() {
   const snap = await getDocs(collection(db, "Routes"));
   const edges = snap.docs.map(d => d.data());
@@ -35,11 +40,21 @@ export async function buildRouteTimeline() {
   return timeline;
 }
 
+
+/* ============================================================
+   🔥 [유지됨] 날짜 기준 타임라인 데이터 생성
+   (날짜가 없는 도시는 여기서 제외됩니다)
+============================================================ */
 export async function buildDateTimeline() {
   const snap = await getDocs(collection(db, "Cities"));
-  const cities = snap.docs.map(d => d.data());
+  let cities = snap.docs.map(d => d.data());
 
+  // 🔥 필터링: 날짜(In/Out)가 빈 문자열("")이거나 없는 경우 제외
+  cities = cities.filter(c => c.Stay_in && c.Stay_out);
+
+  // 날짜순 정렬
   cities.sort((a, b) => new Date(a.Stay_in) - new Date(b.Stay_in));
+
   return cities.map(c => ({
     city: c.City,
     start: c.Stay_in,
@@ -47,6 +62,10 @@ export async function buildDateTimeline() {
   }));
 }
 
+
+/* ============================================================
+   UI 업데이트
+============================================================ */
 export async function updateTimelineUI() {
   const dateTimeline = await buildDateTimeline();
   const box = document.getElementById("timeline-box");
@@ -64,6 +83,9 @@ export async function updateTimelineUI() {
 
     /* --- 마우스 hover --- */
     div.onmouseenter = () => {
+      // cityMarkers가 아직 로드되지 않았을 수 있으므로 체크
+      if (!cityMarkers) return;
+
       const cityEntry = Object.values(cityMarkers)
         .find(c => c.data.City === t.city);
 
@@ -82,6 +104,8 @@ export async function updateTimelineUI() {
     };
 
     div.onmouseleave = () => {
+      if (!cityMarkers) return;
+
       const cityEntry = Object.values(cityMarkers)
         .find(c => c.data.City === t.city);
 
@@ -92,16 +116,21 @@ export async function updateTimelineUI() {
     };
 
 
-    /* --- 타임라인에서 도시 클릭 → flyTo(6) --- */
+    /* --- 타임라인에서 도시 클릭 → flyTo --- */
     div.onclick = () => {
+      if (!cityMarkers) return;
+
       const cityEntry = Object.values(cityMarkers)
         .find(c => c.data.City === t.city);
 
       if (!cityEntry) return;
 
+      // 🔥 [핵심 추가] 클릭한 도시를 시계 타겟으로 설정!
+      setClockTargetCity(cityEntry.data);
+
       const pos = cityEntry.data.Coords;
 
-      // 🔥 1) 모든 라인 지도에서 제거 (진짜 remove)
+      // 1) 모든 라인 잠시 제거
       const removedLines = [];
       Object.values(routeLines).forEach(r => {
         if (r.line) {
@@ -110,16 +139,14 @@ export async function updateTimelineUI() {
         }
       });
 
-      // 🔥 2) 지도 이동
+      // 2) 지도 이동
       map.flyTo(pos, 6, { animate: true, duration: 1.2 });
 
-      // 🔥 3) zoom/moveend 후 다시 라인 추가
+      // 3) 이동 후 라인 복구
       map.once("moveend", () => {
         removedLines.forEach(line => {
           line.addTo(map);
         });
-
-        // 클릭한 도시 라인만 강조
         clearAllRouteEffects();
         highlightRoutesByCity(t.city);
       });
