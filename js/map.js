@@ -2,7 +2,8 @@
 export const transportColors = {
   "비행기": "#1E90FF",
   "버스": "#32CD32",
-  "기차": "#000000"
+  "기차": "#000000",
+  "야간버스": "#4B0082" 
 };
 
 export const map = L.map("map", {

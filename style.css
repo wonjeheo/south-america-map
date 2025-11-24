@@ -421,6 +421,35 @@ body.guest-mode select {
   border: none;
 }
 
+#clock-box {
+  position: absolute;
+  bottom: 20px; /* 버튼들과 겹치지 않게 위치 조정 */
+  left: 50%;
+  transform: translateX(-50%);
+  
+  background: rgba(255, 255, 255, 0.75); /* 약간 불투명한 흰색 배경 */
+  backdrop-filter: blur(4px); /* 배경 흐림 효과 */
+  
+  padding: 6px 14px;
+  border-radius: 20px;
+  
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  
+  font-size: 12px; 
+  font-weight: 800; /* 진한 글씨 */
+  color: #222;      /* 검은색에 가까운 진한 회색 */
+  
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 9999;
+  pointer-events: none; /* 클릭이 지도로 통과되도록 */
+}
+
+#clock-box .divider {
+  color: #ccc;
+  font-weight: normal;
+}
 
 @media (max-width: 600px) {
 

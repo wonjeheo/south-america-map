@@ -10,7 +10,7 @@ import {
   signOut, onAuthStateChanged, getRedirectResult,
   setPersistence, browserLocalPersistence
 } from "./firebase.js";
-
+import { cityMarkers } from "./city.js";
 /* ============================================================
    0. 앱 시작 즉시: 로그인 지속성 설정
    (버튼 클릭 안에 넣으면 팝업이 막히므로, 여기서 미리 실행합니다)
@@ -57,6 +57,77 @@ document.querySelectorAll("button").forEach(btn => {
     btn.click();
   });
 });
+
+function startClock() {
+  const elKorea = document.getElementById("time-korea");
+  const elLocal = document.getElementById("time-local");
+
+  setInterval(() => {
+    const now = new Date();
+
+    // 1. 한국 시간
+    const koTime = now.toLocaleTimeString("ko-KR", {
+      hour: "2-digit", minute: "2-digit", hour12: false,
+      timeZone: "Asia/Seoul"
+    });
+    elKorea.textContent = `🇰🇷 한국 ${koTime}`;
+
+    // 2. 현지 시간 계산
+    // 현재 날짜(YYYY-MM-DD) 구하기
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`; // 예: "2025-11-24"
+
+    let targetCity = null;
+
+    // cityMarkers를 순회하며 오늘 날짜가 여행 기간(Stay_in ~ Stay_out)에 속하는지 확인
+    Object.values(cityMarkers).forEach(c => {
+      const d = c.data;
+      if (d.Stay_in <= todayStr && todayStr <= d.Stay_out) {
+        targetCity = d;
+      }
+    });
+
+    let localDate;
+    
+    if (targetCity) {
+      // 🔥 여행 중인 도시를 찾음 -> 해당 도시의 경도(Longitude)로 시간대 계산
+      const lng = targetCity.Coords[1]; // [lat, lng]
+      // 경도 15도마다 1시간 차이 (동쪽 +, 서쪽 -)
+      const offsetHours = Math.round(lng / 15); 
+      
+      // UTC 시간 구하기
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      // 도시 시간 = UTC + (offset * 1시간)
+      localDate = new Date(utc + (3600000 * offsetHours));
+      
+      elLocal.textContent = `📍 ${targetCity.City} ${formatTime(localDate)}`;
+      elLocal.style.color = "#d90429"; // 여행 중일 땐 붉은색 강조
+
+    } else {
+      // 🏳️ 여행 기간이 아니거나 도시를 못 찾음 -> 기본 남미 시간(페루/콜롬비아 UTC-5)
+      // (원하시면 UTC-3 아르헨티나/브라질 기준으로 변경 가능: offset -3)
+      const defaultOffset = -5; 
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      localDate = new Date(utc + (3600000 * defaultOffset));
+      
+      elLocal.textContent = `🌎 현지 ${formatTime(localDate)}`;
+      elLocal.style.color = "#222"; // 평소엔 검은색
+    }
+
+  }, 1000); // 1초마다 갱신
+}
+
+// 00:00 포맷 헬퍼 함수
+function formatTime(dateObj) {
+  let h = dateObj.getHours();
+  let m = dateObj.getMinutes();
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// 앱 시작 시 시계 가동
+startClock();
 
 
 /* ============================================================

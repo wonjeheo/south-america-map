@@ -76,15 +76,15 @@
   </div>
 
   <div id="modal-route" class="modal hidden">
-    <div class="modal-content">
-      <h3>노선 정보</h3>
+      <div class="modal-content">
+        <h3>노선 정보</h3>
 
-      <label>이동수단</label>
-      <select id="route-transport">
-        <option value="비행기">비행기</option>
-        <option value="버스">버스</option>
-        <option value="기차">기차</option>
-      </select>
+        <label>이동수단</label>
+        <select id="route-transport">
+          <option value="비행기">비행기</option>
+          <option value="버스">버스</option>
+          <option value="야간버스">야간버스</option> <option value="기차">기차</option>
+        </select>
 
       <label>비용</label>
       <input id="route-cost" type="text">
@@ -98,6 +98,13 @@
     </div>
   </div>
 
+  <div id="clock-box">
+    <span id="time-korea">🇰🇷 00:00</span>
+    <span class="divider">|</span>
+    <span id="time-local">🌎 00:00</span>
+  </div>
+
+  
   <script type="module" src="./js/app.js"></script>
 
 </body>
