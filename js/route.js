@@ -96,13 +96,26 @@ export function createRouteLine(id, r, fromLatLng, toLatLng) {
 /* ============================================================
    DB 로딩
 ============================================================ */
+/* ============================================================
+   DB 로딩 (유령 경로 자동 삭제 기능 포함)
+============================================================ */
 export async function loadRoutes() {
   const snap = await getDocs(collection(db, "Routes"));
-  snap.forEach(d => {
+  
+  snap.forEach(async (d) => { // async 키워드 추가
     const r = d.data();
 
     const fromCity = Object.values(cityMarkers).find(c => c.data.City === r.From);
     const toCity   = Object.values(cityMarkers).find(c => c.data.City === r.To);
+
+    // 🔥 [수정됨] 도시가 하나라도 없으면 -> DB에서 영구 삭제
+    if (!fromCity || !toCity) {
+      console.warn(`🗑️ 유령 경로가 감지되어 삭제합니다: ${r.From} -> ${r.To}`);
+      
+      // DB에서 해당 문서 삭제
+      await deleteDoc(doc(db, "Routes", d.id));
+      return; 
+    }
 
     createRouteLine(
       d.id,
