@@ -1,111 +1,164 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://unpkg.com https://www.gstatic.com https://apis.google.com;
+    style-src 'self' 'unsafe-inline' https://unpkg.com;
+    img-src 'self' data: https://unpkg.com https://tile.openstreetmap.org;
+    connect-src 'self' https://*.googleapis.com https://www.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.firebaseapp.com https://accounts.google.com;
+    frame-src https://*.firebaseapp.com https://accounts.google.com https://apis.google.com;
+    worker-src 'self' blob:;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    upgrade-insecure-requests;
+  ">
   <title>South America Route Map</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="style.css">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIINfQ3ynKZflWuQ0r2N1D3YFfJBhT91GW9uU="
+    crossorigin="anonymous"
+  >
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin="anonymous"
+  ></script>
 </head>
-
-<body>
-
+<body class="locked-mode">
   <div id="login-overlay" class="login-screen">
     <div class="login-box">
-      <h1>여행 지도 ✈️</h1>
-      <p>관리자는 로그인을, 방문자는 게스트 입장을 선택하세요.</p>
-      <button id="btn-login-google" class="btn-login">Google 로그인 (관리자)</button>
-      <button id="btn-guest" class="btn-guest">그냥 구경하기 (게스트)</button>
+      <p class="eyebrow">SOUTH AMERICA TRAVEL LOG</p>
+      <h1>남미 여행 지도 ✈️</h1>
+      <p>
+        게스트에게는 여행이 끝난 뒤 공개한 도시·월 단위 일정·이동 경로만 표시됩니다.
+        숙소, 정확한 날짜, 비용과 메모는 관리자에게만 보입니다.
+      </p>
+      <button id="btn-login-google" class="btn-login" type="button">Google 로그인 (관리자)</button>
+      <button id="btn-guest" class="btn-guest" type="button">공개 지도 보기 (게스트)</button>
     </div>
   </div>
 
-  <button id="btn-logout" class="floating-logout hidden">로그아웃</button>
+  <button id="btn-session" class="floating-session hidden" type="button">관리자 로그인</button>
 
-  <div id="map"></div>
+  <main>
+    <div id="map" aria-label="남미 여행 경로 지도"></div>
 
-  <div id="total-spent-box">
-    총 사용 금액: <span id="total-spent">0</span> 원
-  </div>
+    <div id="privacy-notice" class="privacy-notice">
+      여행이 종료된 뒤 공개한 요약 지도입니다.
+    </div>
 
-  <div id="timeline-panel">
-    <h4>여행 타임라인</h4>
-    <div id="timeline-box"></div>
-  </div>
+    <div id="total-spent-box" class="admin-only">
+      총 사용 금액: <span id="total-spent">0</span>원
+    </div>
 
-  <div id="map-buttons" class="button-panel">
-    <button id="add-city-mobile" class="floating-add-btn admin-only">도시 추가</button>
-    <button id="btn-world">전체 보기</button>
-    <button id="btn-southamerica">남미 확대</button>
-  </div>
+    <aside id="timeline-panel">
+      <h2 id="timeline-title">여행 타임라인</h2>
+      <p id="timeline-empty" class="timeline-empty">여행 데이터를 불러오는 중입니다.</p>
+      <div id="timeline-box"></div>
+    </aside>
 
-  <div id="add-city-overlay" class="hidden">
+    <div id="admin-publish-panel" class="admin-only publish-panel">
+      <button id="btn-publish" type="button">공개 지도 갱신</button>
+      <p id="publish-status" aria-live="polite"></p>
+    </div>
+
+    <div id="map-buttons" class="button-panel">
+      <button id="add-city-mobile" class="admin-only" type="button">도시 추가</button>
+      <button id="btn-world" type="button">전체 보기</button>
+      <button id="btn-southamerica" type="button">남미 확대</button>
+    </div>
+
+    <div id="clock-box">
+      <span id="time-korea">🇰🇷 00:00</span>
+      <span class="divider">|</span>
+      <span id="time-local">🌎 00:00</span>
+    </div>
+  </main>
+
+  <div id="add-city-overlay" class="hidden" aria-hidden="true">
     <div class="overlay-text">지도에서 도시 위치를 선택하세요</div>
   </div>
-  
-  <div id="modal-city" class="modal hidden">
+
+  <div id="modal-city" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-city-title">
     <div class="modal-content">
-      <h3 id="modal-city-title">도시 정보</h3>
+      <h2 id="modal-city-title">도시 정보</h2>
 
-      <label>도시 이름</label>
-      <input id="city-name" type="text">
+      <section class="public-summary">
+        <strong id="city-public-name">도시</strong>
+        <span id="city-public-period">방문 시기</span>
+      </section>
 
-      <label>DATE IN</label>
-      <input id="city-in" type="text">
+      <div class="admin-detail">
+        <label for="city-name">도시 이름</label>
+        <input id="city-name" type="text" maxlength="100" autocomplete="off">
 
-      <label>DATE OUT</label>
-      <input id="city-out" type="text">
+        <label for="city-in">DATE IN</label>
+        <input id="city-in" type="date">
 
-      <label>HOTEL</label>
-      <input id="city-hotel" type="text">
+        <label for="city-out">DATE OUT</label>
+        <input id="city-out" type="date">
 
-      <div id="spent-list"></div>
+        <label for="city-hotel">HOTEL</label>
+        <input id="city-hotel" type="text" maxlength="200" autocomplete="off">
 
-      <div class="spent-btn-wrap admin-only">
-        <button id="add-spent-item">지출 항목 추가</button>
+        <h3>지출 내역</h3>
+        <div id="spent-list"></div>
+        <button id="add-spent-item" type="button">지출 항목 추가</button>
+
+        <div id="city-spent-total">도시 지출 총합: 0원</div>
+
+        <div class="modal-actions">
+          <button id="city-save" type="button">저장</button>
+          <button id="city-connect" type="button">연결하기</button>
+          <button id="city-delete" class="danger" type="button">삭제</button>
+        </div>
       </div>
 
-      <button id="city-save" class="admin-only">저장</button>
-      <button id="city-connect" class="admin-only">연결하기</button>
-      <button id="city-delete" class="admin-only">삭제</button>
-      <button id="city-cancel">닫기</button> 
-      <div id="city-spent-total" style="margin-top: 10px; font-weight: bold; color: #ffd34d;">
-        도시 지출 총합: 0원
-      </div>
+      <button id="city-cancel" type="button">닫기</button>
     </div>
   </div>
 
-  <div id="modal-route" class="modal hidden">
-      <div class="modal-content">
-        <h3>노선 정보</h3>
+  <div id="modal-route" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-route-title">
+    <div class="modal-content">
+      <h2 id="modal-route-title">노선 정보</h2>
 
-        <label>이동수단</label>
+      <section class="public-summary">
+        <strong id="route-public-path">출발지 → 도착지</strong>
+        <span id="route-public-transport">이동수단</span>
+      </section>
+
+      <div class="admin-detail">
+        <label for="route-transport">이동수단</label>
         <select id="route-transport">
           <option value="비행기">비행기</option>
           <option value="버스">버스</option>
-          <option value="야간버스">야간버스</option> <option value="기차">기차</option>
+          <option value="야간버스">야간버스</option>
+          <option value="기차">기차</option>
         </select>
 
-      <label>비용</label>
-      <input id="route-cost" type="text">
+        <label for="route-cost">비용</label>
+        <input id="route-cost" type="number" min="0" max="100000000" step="1">
 
-      <label>메모</label>
-      <input id="route-note" type="text">
+        <label for="route-note">메모</label>
+        <input id="route-note" type="text" maxlength="300" autocomplete="off">
 
-      <button id="route-save" class="admin-only">저장</button>
-      <button id="route-delete" class="admin-only">삭제</button>
-      <button id="route-cancel">닫기</button>
+        <div class="modal-actions">
+          <button id="route-save" type="button">저장</button>
+          <button id="route-delete" class="danger" type="button">삭제</button>
+        </div>
+      </div>
+
+      <button id="route-cancel" type="button">닫기</button>
     </div>
   </div>
 
-  <div id="clock-box">
-    <span id="time-korea">🇰🇷 00:00</span>
-    <span class="divider">|</span>
-    <span id="time-local">🌎 00:00</span>
-  </div>
-
-  
   <script type="module" src="./js/app.js"></script>
-
 </body>
 </html>

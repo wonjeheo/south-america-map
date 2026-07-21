@@ -1,0 +1,136 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid == "REPLACE_WITH_YOUR_FIREBASE_AUTH_UID";
+    }
+
+    function validCoordinates(coords) {
+      return coords is list
+        && coords.size() == 2
+        && coords[0] is number
+        && coords[1] is number
+        && coords[0] >= -90
+        && coords[0] <= 90
+        && coords[1] >= -180
+        && coords[1] <= 180;
+    }
+
+    function validPrivateCity() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          "City", "Coords", "Stay_in", "Stay_out", "Hotel", "Spent"
+        ])
+        && data.keys().hasOnly([
+          "City", "Coords", "Stay_in", "Stay_out", "Hotel", "Spent"
+        ])
+        && data.City is string
+        && data.City.size() > 0
+        && data.City.size() <= 100
+        && validCoordinates(data.Coords)
+        && data.Stay_in is string
+        && data.Stay_in.size() <= 10
+        && data.Stay_out is string
+        && data.Stay_out.size() <= 10
+        && data.Hotel is string
+        && data.Hotel.size() <= 200
+        && data.Spent is list
+        && data.Spent.size() <= 100;
+    }
+
+    function validPrivateRoute() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          "From", "To", "Transport", "Cost", "Note"
+        ])
+        && data.keys().hasOnly([
+          "From", "To", "FromId", "ToId", "Transport", "Cost", "Note"
+        ])
+        && data.From is string
+        && data.From.size() > 0
+        && data.From.size() <= 100
+        && data.To is string
+        && data.To.size() > 0
+        && data.To.size() <= 100
+        && (!data.keys().hasAny(["FromId"]) || (data.FromId is string && data.FromId.size() <= 128))
+        && (!data.keys().hasAny(["ToId"]) || (data.ToId is string && data.ToId.size() <= 128))
+        && data.Transport in ["비행기", "버스", "야간버스", "기차"]
+        && data.Cost is number
+        && data.Cost >= 0
+        && data.Cost <= 100000000
+        && data.Note is string
+        && data.Note.size() <= 300;
+    }
+
+    function validPublicCity() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          "City", "Coords", "VisitMonth", "VisitOrder"
+        ])
+        && data.keys().hasOnly([
+          "City", "Coords", "VisitMonth", "VisitOrder"
+        ])
+        && data.City is string
+        && data.City.size() > 0
+        && data.City.size() <= 100
+        && validCoordinates(data.Coords)
+        && data.VisitMonth is string
+        && data.VisitMonth.size() <= 7
+        && data.VisitOrder is number
+        && data.VisitOrder >= 0;
+    }
+
+    function validPublicRoute() {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          "From", "To", "FromId", "ToId", "Transport", "Order"
+        ])
+        && data.keys().hasOnly([
+          "From", "To", "FromId", "ToId", "Transport", "Order"
+        ])
+        && data.From is string
+        && data.From.size() > 0
+        && data.From.size() <= 100
+        && data.To is string
+        && data.To.size() > 0
+        && data.To.size() <= 100
+        && data.FromId is string
+        && data.FromId.size() > 0
+        && data.FromId.size() <= 128
+        && data.ToId is string
+        && data.ToId.size() > 0
+        && data.ToId.size() <= 128
+        && data.Transport in ["비행기", "버스", "야간버스", "기차"]
+        && data.Order is number
+        && data.Order >= 0;
+    }
+
+    match /Cities/{cityId} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() && validPrivateCity();
+    }
+
+    match /Routes/{routeId} {
+      allow read, delete: if isAdmin();
+      allow create, update: if isAdmin() && validPrivateRoute();
+    }
+
+    match /PublicCities/{cityId} {
+      allow read: if true;
+      allow delete: if isAdmin();
+      allow create, update: if isAdmin() && validPublicCity();
+    }
+
+    match /PublicRoutes/{routeId} {
+      allow read: if true;
+      allow delete: if isAdmin();
+      allow create, update: if isAdmin() && validPublicRoute();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

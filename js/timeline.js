@@ -1,158 +1,94 @@
-// js/timeline.js
-import { db, collection, getDocs } from "./firebase.js";
-// 🔥 [수정됨] setClockTargetCity 가져오기
-import { cityMarkers, setClockTargetCity } from "./city.js"; 
-import { map } from "./map.js";
+import { map, createHighlightIcon } from "./map.js";
+import { isAdminMode } from "./state.js";
+import { cityMarkers, routeLines, uiState } from "./store.js";
 import {
   clearAllRouteEffects,
   highlightRoutesByCity,
-  unhighlightAllRoutes,
-  routeLines
+  unhighlightAllRoutes
 } from "./route.js";
 
-
-/* ============================================================
-   (안 쓰이는 함수지만 호환성을 위해 유지)
-   경로 연결 순서대로 타임라인 빌드
-============================================================ */
-export async function buildRouteTimeline() {
-  const snap = await getDocs(collection(db, "Routes"));
-  const edges = snap.docs.map(d => d.data());
-
-  if (edges.length === 0) return [];
-
-  const fromSet = new Set(edges.map(e => e.From));
-  const toSet = new Set(edges.map(e => e.To));
-
-  const start = [...fromSet].find(c => !toSet.has(c));
-  if (!start) return [];
-
-  const timeline = [start];
-  let current = start;
-
-  while (true) {
-    const next = edges.find(e => e.From === current);
-    if (!next) break;
-    timeline.push(next.To);
-    current = next.To;
-  }
-
-  return timeline;
+function formatVisitMonth(value) {
+  if (!/^\d{4}-\d{2}$/.test(String(value || ""))) return "방문 시기 비공개";
+  const [year, month] = value.split("-");
+  return `${year}년 ${Number(month)}월`;
 }
 
-
-/* ============================================================
-   🔥 [유지됨] 날짜 기준 타임라인 데이터 생성
-   (날짜가 없는 도시는 여기서 제외됩니다)
-============================================================ */
-export async function buildDateTimeline() {
-  const snap = await getDocs(collection(db, "Cities"));
-  let cities = snap.docs.map(d => d.data());
-
-  // 🔥 필터링: 날짜(In/Out)가 빈 문자열("")이거나 없는 경우 제외
-  cities = cities.filter(c => c.Stay_in && c.Stay_out);
-
-  // 날짜순 정렬
-  cities.sort((a, b) => new Date(a.Stay_in) - new Date(b.Stay_in));
-
-  return cities.map(c => ({
-    city: c.City,
-    start: c.Stay_in,
-    end: c.Stay_out
-  }));
-}
-
-
-/* ============================================================
-   UI 업데이트
-============================================================ */
-export async function updateTimelineUI() {
-  const dateTimeline = await buildDateTimeline();
-  const box = document.getElementById("timeline-box");
-  box.innerHTML = "";
-
-  dateTimeline.forEach(t => {
-    const div = document.createElement("div");
-    div.classList.add("timeline-item");
-    div.dataset.city = t.city;
-
-    div.innerHTML = `
-      <b>${t.city}</b><br>
-      ${t.start} ~ ${t.end}
-    `;
-
-    /* --- 마우스 hover --- */
-    div.onmouseenter = () => {
-      // cityMarkers가 아직 로드되지 않았을 수 있으므로 체크
-      if (!cityMarkers) return;
-
-      const cityEntry = Object.values(cityMarkers)
-        .find(c => c.data.City === t.city);
-
-      if (cityEntry) {
-        cityEntry.marker.setIcon(
-          L.icon({
-            iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
-            iconSize: [55, 55],
-            iconAnchor: [27, 52]
-          })
-        );
+function getTimelineEntries() {
+  return Object.values(cityMarkers)
+    .map(city => ({
+      id: city.id,
+      city: city.data.City,
+      start: city.data.Stay_in || "",
+      end: city.data.Stay_out || "",
+      visitMonth: city.data.VisitMonth || "",
+      order: Number(city.data.VisitOrder || 0)
+    }))
+    .sort((a, b) => {
+      if (isAdminMode()) {
+        return (a.start || "9999-99-99").localeCompare(b.start || "9999-99-99");
       }
+      if (a.order !== b.order) return a.order - b.order;
+      return a.city.localeCompare(b.city, "ko");
+    });
+}
 
+export function updateTimelineUI() {
+  const box = document.getElementById("timeline-box");
+  const empty = document.getElementById("timeline-empty");
+  box.replaceChildren();
+
+  const entries = getTimelineEntries();
+  empty.classList.toggle("hidden", entries.length > 0);
+
+  entries.forEach(entry => {
+    const cityEntry = cityMarkers[entry.id];
+    if (!cityEntry) return;
+
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "timeline-item";
+
+    const cityName = document.createElement("strong");
+    cityName.textContent = entry.city;
+
+    const period = document.createElement("span");
+    period.textContent = isAdminMode()
+      ? (entry.start && entry.end ? `${entry.start} ~ ${entry.end}` : "날짜 미입력")
+      : formatVisitMonth(entry.visitMonth);
+
+    item.append(cityName, period);
+
+    item.addEventListener("mouseenter", () => {
+      cityEntry.marker.setIcon(createHighlightIcon());
       unhighlightAllRoutes();
-      highlightRoutesByCity(t.city);
-    };
+      highlightRoutesByCity(entry.id, entry.city);
+    });
 
-    div.onmouseleave = () => {
-      if (!cityMarkers) return;
-
-      const cityEntry = Object.values(cityMarkers)
-        .find(c => c.data.City === t.city);
-
-      if (cityEntry)
-        cityEntry.marker.setIcon(cityEntry.marker.options.icon);
-
+    item.addEventListener("mouseleave", () => {
+      cityEntry.marker.setIcon(cityEntry.normalIcon);
       unhighlightAllRoutes();
-    };
+    });
 
-
-    /* --- 타임라인에서 도시 클릭 → flyTo --- */
-    div.onclick = () => {
-      if (!cityMarkers) return;
-
-      const cityEntry = Object.values(cityMarkers)
-        .find(c => c.data.City === t.city);
-
-      if (!cityEntry) return;
-
-      // 🔥 [핵심 추가] 클릭한 도시를 시계 타겟으로 설정!
-      setClockTargetCity(cityEntry.data);
-
-      const pos = cityEntry.data.Coords;
-
-      // 1) 모든 라인 잠시 제거
+    item.addEventListener("click", () => {
+      uiState.clockTargetCity = cityEntry.data;
+      const position = cityEntry.data.Coords;
       const removedLines = [];
-      Object.values(routeLines).forEach(r => {
-        if (r.line) {
-          removedLines.push(r.line);
-          map.removeLayer(r.line);
+
+      Object.values(routeLines).forEach(route => {
+        if (route.line && map.hasLayer(route.line)) {
+          removedLines.push(route.line);
+          map.removeLayer(route.line);
         }
       });
 
-      // 2) 지도 이동
-      map.flyTo(pos, 6, { animate: true, duration: 1.2 });
-
-      // 3) 이동 후 라인 복구
+      map.flyTo(position, 6, { animate: true, duration: 1.2 });
       map.once("moveend", () => {
-        removedLines.forEach(line => {
-          line.addTo(map);
-        });
+        removedLines.forEach(line => line.addTo(map));
         clearAllRouteEffects();
-        highlightRoutesByCity(t.city);
+        highlightRoutesByCity(entry.id, entry.city);
       });
-    };
+    });
 
-    box.appendChild(div);
-    box.appendChild(document.createElement("hr"));
+    box.appendChild(item);
   });
 }

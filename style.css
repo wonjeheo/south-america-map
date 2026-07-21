@@ -1,22 +1,269 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+:root {
+  font-family: Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f8fafc;
+  background: #0f172a;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+main,
 #map {
   width: 100%;
   height: 100%;
-  /* 모바일 터치 이벤트 필수 설정 */
-  touch-action: none !important;
-  -ms-touch-action: none !important;
+  margin: 0;
 }
 
-/* 버튼 */
+body {
+  overflow: hidden;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.hidden {
+  display: none !important;
+}
+
+body.guest-mode .admin-only,
+body.guest-mode .admin-detail,
+body.locked-mode .admin-only,
+body.locked-mode .admin-detail {
+  display: none !important;
+}
+
+#map {
+  touch-action: none;
+  background: #dbeafe;
+}
+
+.login-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background:
+    radial-gradient(circle at top, rgba(30, 64, 175, 0.35), transparent 48%),
+    rgba(2, 6, 23, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.login-box {
+  width: min(480px, 100%);
+  padding: 34px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.login-box h1 {
+  margin: 0 0 14px;
+  color: #facc15;
+  font-size: clamp(27px, 5vw, 38px);
+}
+
+.login-box > p:not(.eyebrow) {
+  margin: 0 0 26px;
+  color: #cbd5e1;
+  line-height: 1.7;
+}
+
+.btn-login,
+.btn-guest {
+  display: block;
+  width: min(300px, 100%);
+  margin: 10px auto 0;
+  padding: 13px 16px;
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+.btn-login {
+  color: white;
+  background: #2563eb;
+}
+
+.btn-guest {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.floating-session {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10020;
+  padding: 8px 13px;
+  color: white;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.82);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+
+.privacy-notice {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 9000;
+  max-width: min(560px, calc(100vw - 180px));
+  padding: 9px 13px;
+  color: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.16);
+  font-size: 13px;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+}
+
+#total-spent-box {
+  position: absolute;
+  top: 62px;
+  left: 50%;
+  z-index: 9000;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  color: white;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.84);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25);
+  font-weight: 800;
+}
+
+#total-spent {
+  color: #facc15;
+}
+
+#timeline-panel {
+  position: absolute;
+  top: 92px;
+  right: 18px;
+  z-index: 9000;
+  width: 220px;
+  max-height: 62vh;
+  padding: 13px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.84);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+}
+
+#timeline-panel h2 {
+  margin: 0 0 10px;
+  color: #facc15;
+  font-size: 15px;
+  text-align: center;
+}
+
+#timeline-box {
+  display: grid;
+  gap: 7px;
+  max-height: calc(62vh - 58px);
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.timeline-empty {
+  margin: 8px 0;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.timeline-item {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 8px 10px;
+  color: white;
+  text-align: left;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: 0.2s ease;
+}
+
+.timeline-item:hover,
+.timeline-item:focus-visible {
+  border-left-color: #facc15;
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateX(3px);
+}
+
+.timeline-item strong {
+  color: #facc15;
+  font-size: 13px;
+}
+
+.timeline-item span {
+  color: #e2e8f0;
+  font-size: 11px;
+}
+
+.publish-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 70px;
+  z-index: 9000;
+  width: min(360px, calc(100vw - 32px));
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.86);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.3);
+}
+
+.publish-panel button {
+  width: 100%;
+  padding: 10px;
+  color: #0f172a;
+  border-radius: 8px;
+  background: #facc15;
+  font-weight: 900;
+}
+
+.publish-panel p {
+  margin: 7px 2px 0;
+  color: #e2e8f0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .button-panel {
   position: absolute;
-  bottom: 25px;
-  right: 10px;
+  right: 14px;
+  bottom: 20px;
   z-index: 9000;
   display: flex;
   flex-direction: column;
@@ -24,507 +271,260 @@ html, body {
 }
 
 .button-panel button {
-  padding: 8px 14px;
-  background: #fff;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-}
-
-
-/* 모달 */
-/* ============ 모달 오버레이 ============ */
-.modal {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 10000;
-
-  opacity: 1;
-  transform: scale(1);
-  transition: opacity 0.27s ease, transform 0.27s ease;
-}
-
-.modal.hidden {
-  opacity: 0;
-  transform: scale(0.95);
-  pointer-events: none;
-}
-
-/* ============ 모달 컨테이너 ============ */
-.modal-content {
-  background: rgba(30, 30, 30, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px);
-
-  padding: 22px 20px;
-  width: 320px;
-
-  border-radius: 16px;
-  color: #fff;
-
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
-  animation: modalPop 0.25s ease;
-}
-
-@keyframes modalPop {
-  from { transform: scale(0.92); opacity: 0; }
-  to   { transform: scale(1); opacity: 1; }
-}
-
-/* ============ 입력 폼 ============ */
-.modal-content input,
-.modal-content select {
-  padding: 10px 12px;
+  padding: 9px 14px;
+  color: #0f172a;
   border-radius: 8px;
-
-  font-size: 14px;
-
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.08);
-
-  color: #fff;
-  outline: none;
-
-  transition: background 0.2s;
-}
-
-.modal-content input:focus,
-.modal-content select:focus {
-  background: rgba(255,255,255,0.17);
-}
-
-/* ============ 모달 버튼 ============ */
-.modal-content button {
-  padding: 10px 12px;
-  border-radius: 8px;
-
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: bold;
-
-  background: rgba(255,255,255,0.08);
-  color: #ffd34d;
-
-  transition: transform 0.15s ease, background 0.2s ease;
-}
-
-.modal-content button:hover {
-  background: rgba(255,255,255,0.18);
-  transform: translateY(-2px);
-}
-
-.modal-content button:active {
-  transform: translateY(0px) scale(0.97);
-}
-
-/* 삭제 버튼은 경고 느낌 */
-#city-delete,
-#route-delete {
-  background: rgba(255, 70, 70, 0.25);
-  color: #ff8a8a;
-}
-
-#city-delete:hover,
-#route-delete:hover {
-  background: rgba(255, 70, 70, 0.35);
-}
-
-
-/* 마커 확대 효과 */
-.marker-scale {
-  transform: scale(1.35);
-  transition: transform 0.15s ease-out;
-}
-
-/* 스냅 하이라이트용 */
-.snap-highlight {
-  filter: drop-shadow(0 0 12px yellow);
-}
-
-/* 드래그 preview line */
-.preview-line {
-  stroke-dasharray: 10, 10;
-}
-
-#spent-list {
-  max-height: 180px;     /* 모바일에서 잘 보이는 적당한 높이 */
-  overflow-y: auto;      /* 항목이 넘치면 내부 스크롤 생성 */
-  padding-right: 4px;    /* 스크롤이 생겨도 내용이 가려지지 않게 */
-}
-
-#spent-list div {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 5px;
-}
-#spent-list input {
-  width: 100px;
-}
-
-
-
-#total-spent-box {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 10px 18px;
-
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  font-size: 18px;
-  font-weight: bold;
-
-  border-radius: 10px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.35);
-  z-index: 9999;
-}
-
-#total-spent-box span {
-  color: #ffd34d;
-}
-
-
-/* --- 도시 검색창 --- */
-.search-box {
-  position: absolute;
-  bottom: 50px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 220px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: none;
-  font-size: 14px;
-  z-index: 9999;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-}
-
-/* --- 타임라인 패널 --- */
-#timeline-panel {
-  position: absolute;
-  top: 120px;
-  right: 20px;
-  width: 200px;
-  max-height: 60%;
-  overflow-y: auto;
-  background: rgba(0,0,0,0.75);
-  padding: 12px;
-  border-radius: 10px;
-  color: #fff;
-  z-index: 9999;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-
-#timeline-panel h4 {
-  margin: 0 0 10px 0;
-  font-size: 16px;
-  text-align: center;
-  color: #ffd34d;
-}
-
-/* 타임라인 항목 공통 스타일 */
-.timeline-item {
-  margin-bottom: 8px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  font-size: 13px;
-  transition: all 0.25s ease;
-  cursor: pointer;
-  border-left: 3px solid transparent;
-}
-
-/* Hover 시 강조 효과 */
-.timeline-item:hover {
-  background: rgba(255, 255, 255, 0.28);
-  transform: translateX(6px);
-  border-left: 3px solid #ffd34d;
-  box-shadow: 0 0 10px rgba(255, 211, 77, 0.4);
-}
-
-/* 클릭 시 (active 효과) */
-.timeline-item:active {
-  transform: translateX(8px) scale(0.98);
-  background: rgba(255, 255, 255, 0.35);
-}
-
-/* 타임라인 텍스트 강조 */
-.timeline-item b {
-  color: #ffd34d;
-  font-size: 14px;
-}
-
-/* 라인 강조 (타임라인 hover 시) */
-.route-highlight {
-  filter: drop-shadow(0 0 6px yellow);
-  stroke-width: 7px !important;
-  transition: 0.25s;
-}
-
-/* 흐르는 애니메이션 효과 (타임라인 클릭 시) */
-.route-animate {
-  stroke-dasharray: 15;
-  animation: dashFlow 1.4s linear infinite;
-}
-
-@keyframes dashFlow {
-  from {
-    stroke-dashoffset: 15;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-#add-city-overlay {
-  position: fixed;
-  left: 0; top: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.35);
-  z-index: 9999;
-
-  display: none;
-  align-items: center;
-  justify-content: center;
-
-  /* ⭐ 클릭을 아래로 통과시키기 */
-  pointer-events: none;
-}
-
-#add-city-overlay .overlay-text {
-  color: #ffffff;
-  font-size: 20px;
-  font-weight: bold;
-  text-shadow: 0 0 5px #000;
-}
-
-#add-city-overlay.visible {
-  display: flex;   /* 🔥 보일 때만 flex */
-}
-
-#add-city-overlay.hidden {
-  display: none;   /* 🔥 숨김 */
-}
-
-/* 기존 CSS 맨 아래에 추가하세요 */
-
-/* ============ 1. 로그인 인트로 화면 ============ */
-.login-screen {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(10px);
-  z-index: 20000; /* 가장 위에 뜸 */
-  
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  
-  transition: opacity 0.5s ease;
-}
-
-.login-screen.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.login-box {
-  text-align: center;
-  color: white;
-  padding: 20px;
-}
-
-.login-box h1 {
-  margin-bottom: 10px;
-  font-size: 28px;
-  color: #ffd34d;
-}
-
-.login-box p {
-  margin-bottom: 30px;
-  color: #ccc;
-}
-
-.btn-login, .btn-guest {
-  display: block;
-  width: 100%;
-  max-width: 250px;
-  margin: 10px auto;
-  padding: 12px;
-  border-radius: 8px;
-  border: none;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.btn-login {
-  background: #4285F4;
-  color: white;
-}
-
-.btn-guest {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-
-/* ============ 2. 로그아웃 버튼 (작게 우측 상단) ============ */
-.floating-logout {
-  position: absolute;
-  top: 15px; right: 15px;
-  z-index: 9999;
-  background: rgba(255, 70, 70, 0.8);
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.floating-logout.hidden {
-  display: none;
-}
-
-
-/* ============ 3. 게스트 모드 (Admin 버튼 숨기기) ============ */
-/* body에 'guest-mode' 클래스가 붙으면 .admin-only 요소는 다 사라짐 */
-body.guest-mode .admin-only {
-  display: none !important;
-}
-
-/* 게스트 모드일 때 input들은 입력 못하게 비활성화 하는 느낌 (선택사항) */
-body.guest-mode input, 
-body.guest-mode select {
-  pointer-events: none;
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+  font-weight: 750;
 }
 
 #clock-box {
   position: absolute;
-  bottom: 20px; /* 버튼들과 겹치지 않게 위치 조정 */
+  bottom: 20px;
   left: 50%;
-  transform: translateX(-50%);
-  
-  background: rgba(255, 255, 255, 0.75); /* 약간 불투명한 흰색 배경 */
-  backdrop-filter: blur(4px); /* 배경 흐림 효과 */
-  
-  padding: 6px 14px;
-  border-radius: 20px;
-  
+  z-index: 9000;
   display: flex;
   gap: 10px;
   align-items: center;
-  
-  font-size: 12px; 
-  font-weight: 800; /* 진한 글씨 */
-  color: #222;      /* 검은색에 가까운 진한 회색 */
-  
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  z-index: 9999;
-  pointer-events: none; /* 클릭이 지도로 통과되도록 */
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  color: #0f172a;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  font-weight: 850;
+  pointer-events: none;
 }
 
 #clock-box .divider {
-  color: #ccc;
-  font-weight: normal;
+  color: #94a3b8;
 }
 
-@media (max-width: 600px) {
+#add-city-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.35);
+  pointer-events: none;
+}
 
-  /* 모달 전체 */
-  .modal-content {
-    width: 92%;
-    height: calc(100dvh - 40px);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
+.overlay-text {
+  padding: 12px 18px;
+  color: white;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.82);
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.58);
+  backdrop-filter: blur(7px);
+}
+
+.modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(390px, 100%);
+  max-height: calc(100dvh - 40px);
+  padding: 22px;
+  overflow-y: auto;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.94);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46);
+}
+
+.modal-content h2,
+.modal-content h3 {
+  margin: 0;
+}
+
+.modal-content h2 {
+  color: #facc15;
+  font-size: 21px;
+}
+
+.modal-content h3 {
+  margin-top: 5px;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.public-summary {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.public-summary strong {
+  color: white;
+  font-size: 17px;
+}
+
+.public-summary span {
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.admin-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 4px;
+}
+
+.modal-content label {
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.modal-content input,
+.modal-content select {
+  width: 100%;
+  padding: 10px 11px;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.modal-content input:focus,
+.modal-content select:focus {
+  border-color: #60a5fa;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.modal-content option {
+  color: #0f172a;
+}
+
+.modal-content button {
+  padding: 10px 12px;
+  color: #facc15;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 800;
+}
+
+.modal-content button:hover,
+.modal-content button:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.modal-content .danger {
+  color: #fecaca;
+  background: rgba(220, 38, 38, 0.28);
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#modal-route .modal-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#spent-list {
+  display: grid;
+  gap: 7px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.spent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px auto;
+  gap: 6px;
+}
+
+.spent-row button {
+  padding-inline: 9px;
+  color: #fecaca;
+}
+
+#city-spent-total {
+  color: #facc15;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.route-highlight {
+  filter: drop-shadow(0 0 6px #facc15);
+  stroke-width: 7px !important;
+}
+
+@media (max-width: 650px) {
+  .privacy-notice {
+    top: 12px;
+    left: 12px;
+    max-width: calc(100vw - 130px);
+    font-size: 11px;
   }
 
-  /* 🔥 핵심 해결: spent-list 높이를 최소 보장 + 자동 확장 */
-  #spent-list {
-    flex: 1;
-    min-height: 180px;     /* 화면이 작아도 절대 0px이 되지 않음 */
-    max-height: 45dvh;     /* 너무 커지는 것 방지 */
-    overflow-y: auto;
+  .floating-session {
+    top: 12px;
+    right: 12px;
   }
 
-
-  
-  /* 버튼은 절대 줄어들지 않게 */
-  #add-spent-item,
-  #city-save,
-  #city-connect,
-  #city-delete,
-  #city-cancel {
-    flex-shrink: 0;
-  }
-
-  /* 버튼 스타일 축소 */
-  #add-spent-item button,
-  #add-spent-item {
-    width: 100%;
-    padding: 10px;
-    font-size: 14px;
-  }
-
-  /* 타임라인 패널 전체 크기 축소 */
   #timeline-panel {
-    width: 150px;
-    top: 100px;
+    top: 86px;
     right: 10px;
-    padding: 8px 10px;
-
-    max-height: 160px;
-    overflow: hidden;
-    border-radius: 10px;
+    width: 155px;
+    max-height: 190px;
+    padding: 9px;
   }
 
-  /* 스크롤이 필요한 부분만 드래그 되도록 */
   #timeline-box {
-    max-height: 120px;
-    overflow-y: auto;
-    padding-right: 4px;
+    max-height: 140px;
   }
 
-  /* 타임라인 아이템 크기 축소 */
   .timeline-item {
-    padding: 4px 6px;
-    font-size: 12px;
+    padding: 6px;
   }
 
-  #timeline-panel h4 {
-    font-size: 13px;
-    margin-bottom: 6px;
+  .publish-panel {
+    bottom: 66px;
   }
 
-  /* 스크롤바 슬림하게 */
-  #timeline-box::-webkit-scrollbar {
-    width: 5px;
+  #clock-box {
+    bottom: 14px;
+    max-width: calc(100vw - 150px);
+    overflow: hidden;
+    white-space: nowrap;
   }
-  #timeline-box::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.25);
-    border-radius: 3px;
+
+  .modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  #modal-route .modal-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .spent-row {
+    grid-template-columns: minmax(0, 1fr) 95px;
+  }
+
+  .spent-row button {
+    grid-column: 1 / -1;
   }
 }

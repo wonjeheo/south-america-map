@@ -1,230 +1,293 @@
-// js/route.js
 import { map, transportColors } from "./map.js";
 import {
-  db, collection, addDoc, updateDoc, deleteDoc, doc, getDocs
+  db,
+  collection,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc
 } from "./firebase.js";
-import { cityMarkers } from "./city.js";
-import { updateTimelineUI } from "./timeline.js";
+import { COLLECTIONS } from "./config.js";
+import { getAccessMode, isAdminMode, requireAdminMode } from "./state.js";
+import { cityMarkers, routeLines } from "./store.js";
 
-export const routeLines = {};
-export let selectedRoute = null;
+let selectedRoute = null;
+let pendingFromCityId = null;
+let pendingToCityId = null;
 
-function getMiddlePoint(fromLatLng, toLatLng) {
-  return L.latLng(
-    (fromLatLng.lat + toLatLng.lat) / 2,
-    (fromLatLng.lng + toLatLng.lng) / 2
-  );
+const modalRoute = document.getElementById("modal-route");
+const routeTransport = document.getElementById("route-transport");
+const routeCost = document.getElementById("route-cost");
+const routeNote = document.getElementById("route-note");
+const routePublicPath = document.getElementById("route-public-path");
+const routePublicTransport = document.getElementById("route-public-transport");
+
+function notifyDataChanged() {
+  document.dispatchEvent(new CustomEvent("travel-data-changed"));
 }
 
+function safeTransport(value) {
+  return Object.hasOwn(transportColors, value) ? value : "버스";
+}
 
-/* ============================================================
-    라인 강조/해제/애니메이션 유틸
-============================================================ */
-export function highlightRoutesByCity(cityName) {
-  Object.values(routeLines).forEach(r => {
-    if (r.data.From === cityName || r.data.To === cityName) {
-      if (r.line._path) r.line._path.classList.add("route-highlight");
+function safeText(value, maxLength = 200) {
+  return String(value ?? "").trim().slice(0, maxLength);
+}
+
+function parseCost(value) {
+  const cost = Number(value);
+  if (!Number.isFinite(cost) || cost < 0 || cost > 100_000_000) {
+    throw new Error("비용은 0원 이상 1억원 이하의 숫자로 입력하세요.");
+  }
+  return Math.round(cost);
+}
+
+function resolveCity(route, side) {
+  const idKey = side === "from" ? "FromId" : "ToId";
+  const nameKey = side === "from" ? "From" : "To";
+
+  if (route[idKey] && cityMarkers[route[idKey]]) {
+    return cityMarkers[route[idKey]];
+  }
+
+  return Object.values(cityMarkers).find(city => city.data.City === route[nameKey]);
+}
+
+export function clearRoutes() {
+  Object.values(routeLines).forEach(route => {
+    if (route.line && map.hasLayer(route.line)) {
+      map.removeLayer(route.line);
+    }
+  });
+
+  Object.keys(routeLines).forEach(id => delete routeLines[id]);
+  selectedRoute = null;
+  pendingFromCityId = null;
+  pendingToCityId = null;
+}
+
+export function removeRouteFromMap(routeId) {
+  const route = routeLines[routeId];
+  if (!route) return;
+  if (route.line && map.hasLayer(route.line)) {
+    map.removeLayer(route.line);
+  }
+  delete routeLines[routeId];
+}
+
+export function highlightRoutesByCity(cityId, cityName) {
+  Object.values(routeLines).forEach(route => {
+    const isLinked =
+      route.fromCityId === cityId ||
+      route.toCityId === cityId ||
+      route.data.From === cityName ||
+      route.data.To === cityName;
+
+    if (isLinked && route.line?._path) {
+      route.line._path.classList.add("route-highlight");
     }
   });
 }
 
 export function unhighlightAllRoutes() {
-  Object.values(routeLines).forEach(r => {
-    if (r.line._path) r.line._path.classList.remove("route-highlight");
+  Object.values(routeLines).forEach(route => {
+    route.line?._path?.classList.remove("route-highlight");
   });
-}
-
-export function animateRoutesByCity(cityName) {
-  Object.values(routeLines).forEach(r => {
-    if (r.data.From === cityName || r.data.To === cityName) {
-      if (r.line._path) r.line._path.classList.add("route-animate");
-    }
-  });
-
-  // 애니메이션 3초 후 자동 종료
-  setTimeout(() => {
-    Object.values(routeLines).forEach(r => {
-      if (r.line._path) r.line._path.classList.remove("route-animate");
-    });
-  }, 3000);
 }
 
 export function clearAllRouteEffects() {
-  Object.values(routeLines).forEach(r => {
-    if (r.line && r.line._path) {
-      r.line._path.classList.remove("route-highlight");
-      r.line._path.classList.remove("route-animate");
-    }
+  Object.values(routeLines).forEach(route => {
+    route.line?._path?.classList.remove("route-highlight", "route-animate");
   });
 }
 
-/* ============================================================
-   Polyline 생성 (화살표 제거 버전)
-============================================================ */
-export function createRouteLine(id, r, fromLatLng, toLatLng) {
-
+export function createRouteLine(id, route, fromCity, toCity) {
+  const transport = safeTransport(route.Transport);
   const line = L.polyline(
-    [fromLatLng, toLatLng],
-    { color: transportColors[r.Transport], weight: 4, interactive: true }
+    [fromCity.marker.getLatLng(), toCity.marker.getLatLng()],
+    {
+      color: transportColors[transport],
+      weight: 4,
+      interactive: true
+    }
   ).addTo(map);
 
-  line.options.interactive = true;
-
-  // Leaflet 경로 클릭 버그 방지
   line.once("add", () => {
-    if (line._path) {
-      line._path.style.pointerEvents = "stroke";
-    }
+    if (line._path) line._path.style.pointerEvents = "stroke";
   });
 
-  // routeLines 저장
-  routeLines[id] = { id, data: r, line };
+  const normalizedRoute = {
+    From: safeText(route.From || fromCity.data.City, 100),
+    To: safeText(route.To || toCity.data.City, 100),
+    FromId: route.FromId || fromCity.id,
+    ToId: route.ToId || toCity.id,
+    Transport: transport,
+    Cost: Number(route.Cost || 0),
+    Note: safeText(route.Note, 300),
+    Order: Number(route.Order || 0)
+  };
 
-  /* ---- 라인 클릭 이벤트 ---- */
+  routeLines[id] = {
+    id,
+    data: normalizedRoute,
+    line,
+    fromCityId: fromCity.id,
+    toCityId: toCity.id
+  };
+
   line.on("click", () => {
     selectedRoute = id;
+    pendingFromCityId = null;
+    pendingToCityId = null;
 
-    document.getElementById("route-transport").value = r.Transport;
-    document.getElementById("route-cost").value = r.Cost;
-    document.getElementById("route-note").value = r.Note;
+    routePublicPath.textContent = `${normalizedRoute.From} → ${normalizedRoute.To}`;
+    routePublicTransport.textContent = `이동수단: ${normalizedRoute.Transport}`;
 
-    document.getElementById("route-delete").style.display = "block";
-    document.getElementById("modal-route").classList.remove("hidden");
+    if (isAdminMode()) {
+      routeTransport.value = normalizedRoute.Transport;
+      routeCost.value = String(normalizedRoute.Cost || "");
+      routeNote.value = normalizedRoute.Note;
+    }
+
+    modalRoute.classList.remove("hidden");
   });
 }
 
-/* ============================================================
-   DB 로딩
-============================================================ */
-/* ============================================================
-   DB 로딩 (유령 경로 자동 삭제 기능 포함)
-============================================================ */
 export async function loadRoutes() {
-  const snap = await getDocs(collection(db, "Routes"));
-  
-  snap.forEach(async (d) => { // async 키워드 추가
-    const r = d.data();
+  const collectionName = getAccessMode() === "admin"
+    ? COLLECTIONS.privateRoutes
+    : COLLECTIONS.publicRoutes;
 
-    const fromCity = Object.values(cityMarkers).find(c => c.data.City === r.From);
-    const toCity   = Object.values(cityMarkers).find(c => c.data.City === r.To);
+  const snapshot = await getDocs(collection(db, collectionName));
 
-    // 🔥 [수정됨] 도시가 하나라도 없으면 -> DB에서 영구 삭제
+  snapshot.forEach(documentSnapshot => {
+    const route = documentSnapshot.data();
+    const fromCity = resolveCity(route, "from");
+    const toCity = resolveCity(route, "to");
+
     if (!fromCity || !toCity) {
-      console.warn(`🗑️ 유령 경로가 감지되어 삭제합니다: ${r.From} -> ${r.To}`);
-      
-      // DB에서 해당 문서 삭제
-      await deleteDoc(doc(db, "Routes", d.id));
-      return; 
+      console.warn("도시와 연결되지 않은 경로를 건너뜁니다.", documentSnapshot.id);
+      return;
     }
 
-    createRouteLine(
-      d.id,
-      r,
-      fromCity.marker.getLatLng(),
-      toCity.marker.getLatLng()
-    );
+    createRouteLine(documentSnapshot.id, route, fromCity, toCity);
   });
 }
 
-/* ============================================================
-   전체 경비 합산
-============================================================ */
-export async function updateTotalSpent() {
+export function openNewRouteModal(fromCityId, toCityId) {
+  requireAdminMode();
+
+  if (!cityMarkers[fromCityId] || !cityMarkers[toCityId]) {
+    throw new Error("연결할 도시를 찾을 수 없습니다.");
+  }
+
+  selectedRoute = null;
+  pendingFromCityId = fromCityId;
+  pendingToCityId = toCityId;
+
+  const fromName = cityMarkers[fromCityId].data.City;
+  const toName = cityMarkers[toCityId].data.City;
+  routePublicPath.textContent = `${fromName} → ${toName}`;
+  routePublicTransport.textContent = "이동수단을 선택하세요.";
+
+  routeTransport.value = "비행기";
+  routeCost.value = "";
+  routeNote.value = "";
+  modalRoute.classList.remove("hidden");
+}
+
+export function updateTotalSpent() {
+  const totalElement = document.getElementById("total-spent");
+  if (!isAdminMode()) {
+    totalElement.textContent = "0";
+    return;
+  }
+
   let total = 0;
-
-  const citiesSnap = await getDocs(collection(db, "Cities"));
-  citiesSnap.forEach(doc => {
-    const data = doc.data();
-    if (data.Spent) {
-      data.Spent.forEach(s => total += Number(s.cost || 0));
-    }
+  Object.values(cityMarkers).forEach(city => {
+    (city.data.Spent || []).forEach(item => {
+      total += Number(item.cost || 0);
+    });
+  });
+  Object.values(routeLines).forEach(route => {
+    total += Number(route.data.Cost || 0);
   });
 
-  const routesSnap = await getDocs(collection(db, "Routes"));
-  routesSnap.forEach(doc => {
-    const r = doc.data();
-    total += Number(r.Cost || 0);
-  });
-
-  document.getElementById("total-spent").textContent =
-    total.toLocaleString();
+  totalElement.textContent = total.toLocaleString("ko-KR");
 }
 
-/* ============================================================
-   이벤트 설정
-============================================================ */
 export function setupRouteEvents() {
+  document.getElementById("route-save").addEventListener("click", async () => {
+    try {
+      requireAdminMode();
 
-  /* ---- 저장 ---- */
-  document.getElementById("route-save").onclick = async () => {
-    const transport = document.getElementById("route-transport").value;
-    const cost = document.getElementById("route-cost").value;
-    const note = document.getElementById("route-note").value;
+      const transport = safeTransport(routeTransport.value);
+      const cost = parseCost(routeCost.value || 0);
+      const note = safeText(routeNote.value, 300);
 
-    /* 신규 생성 */
-    if (!selectedRoute) {
-      const fromCity = cityMarkers[window.routeFrom];
-      const toCity   = cityMarkers[window.routeTo];
+      if (!selectedRoute) {
+        const fromCity = cityMarkers[pendingFromCityId];
+        const toCity = cityMarkers[pendingToCityId];
+        if (!fromCity || !toCity) throw new Error("연결할 도시를 찾을 수 없습니다.");
 
-      const ref = await addDoc(collection(db, "Routes"), {
-        From: fromCity.data.City,
-        To: toCity.data.City,
-        Transport: transport,
-        Cost: cost,
-        Note: note
-      });
+        const payload = {
+          From: fromCity.data.City,
+          To: toCity.data.City,
+          FromId: fromCity.id,
+          ToId: toCity.id,
+          Transport: transport,
+          Cost: cost,
+          Note: note
+        };
 
-      createRouteLine(
-        ref.id,
-        { From: fromCity.data.City, To: toCity.data.City, Transport: transport, Cost: cost, Note: note },
-        fromCity.marker.getLatLng(),
-        toCity.marker.getLatLng()
-      );
+        const reference = await addDoc(collection(db, COLLECTIONS.privateRoutes), payload);
+        createRouteLine(reference.id, payload, fromCity, toCity);
+      } else {
+        const route = routeLines[selectedRoute];
+        if (!route) throw new Error("수정할 경로를 찾을 수 없습니다.");
 
-    /* 기존 라인 수정 */
-    } else {
-      await updateDoc(doc(db, "Routes", selectedRoute), {
-        Transport: transport,
-        Cost: cost,
-        Note: note
-      });
+        await updateDoc(doc(db, COLLECTIONS.privateRoutes, selectedRoute), {
+          Transport: transport,
+          Cost: cost,
+          Note: note
+        });
 
-      const r = routeLines[selectedRoute];
+        route.data.Transport = transport;
+        route.data.Cost = cost;
+        route.data.Note = note;
+        route.line.setStyle({ color: transportColors[transport] });
+      }
 
-      // 내부 데이터 갱신
-      r.data.Transport = transport;
-      r.data.Cost = cost;
-      r.data.Note = note;
-
-      // 라인 색상 변경
-      r.line.setStyle({ color: transportColors[transport] });
+      selectedRoute = null;
+      pendingFromCityId = null;
+      pendingToCityId = null;
+      modalRoute.classList.add("hidden");
+      notifyDataChanged();
+    } catch (error) {
+      alert(error.message);
     }
+  });
 
+  document.getElementById("route-delete").addEventListener("click", async () => {
+    try {
+      requireAdminMode();
+      if (!selectedRoute) return;
+
+      await deleteDoc(doc(db, COLLECTIONS.privateRoutes, selectedRoute));
+      removeRouteFromMap(selectedRoute);
+      selectedRoute = null;
+      modalRoute.classList.add("hidden");
+      notifyDataChanged();
+    } catch (error) {
+      alert(error.message);
+    }
+  });
+
+  document.getElementById("route-cancel").addEventListener("click", () => {
     selectedRoute = null;
-
-    document.getElementById("modal-route").classList.add("hidden");
-    updateTotalSpent();
-    updateTimelineUI();
-  };
-
-  /* ---- 삭제 ---- */
-  document.getElementById("route-delete").onclick = async () => {
-    if (!selectedRoute) return;
-
-    map.removeLayer(routeLines[selectedRoute].line);
-    await deleteDoc(doc(db, "Routes", selectedRoute));
-
-    delete routeLines[selectedRoute];
-    selectedRoute = null;
-
-    document.getElementById("modal-route").classList.add("hidden");
-    updateTotalSpent();
-    updateTimelineUI();
-  };
-
-  /* ---- 취소 ---- */
-  document.getElementById("route-cancel").onclick = () => {
-    selectedRoute = null;
-    document.getElementById("modal-route").classList.add("hidden");
-  };
+    pendingFromCityId = null;
+    pendingToCityId = null;
+    modalRoute.classList.add("hidden");
+  });
 }

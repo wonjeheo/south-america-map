@@ -1,204 +1,247 @@
-// js/app.js
-
-// 🔥 [수정됨] clockTargetCity 가져오기 (시계 타겟 확인용)
-import { loadCities, setupCityEvents, cityMarkers, clockTargetCity } from "./city.js";
-import { loadRoutes, updateTotalSpent, setupRouteEvents, routeLines } from "./route.js";
-import { updateTimelineUI } from "./timeline.js";
 import { map } from "./map.js";
-import { 
-  auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, 
-  signOut, onAuthStateChanged, getRedirectResult,
-  setPersistence, browserLocalPersistence
+import {
+  auth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
 } from "./firebase.js";
+import { isConfiguredAdmin } from "./config.js";
+import { setAccessMode, getAccessMode, isAdminMode } from "./state.js";
+import { cityMarkers, routeLines, uiState } from "./store.js";
+import { setupCityEvents, loadCities, clearCities } from "./city.js";
+import {
+  setupRouteEvents,
+  loadRoutes,
+  clearRoutes,
+  updateTotalSpent
+} from "./route.js";
+import { updateTimelineUI } from "./timeline.js";
+import { publishPublicSnapshot } from "./publish.js";
 
-/* ============================================================
-   0. 앱 시작 즉시: 로그인 지속성 설정
-============================================================ */
-(async function initAuthPersistence() {
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-    console.log("💾 로그인 지속성 설정 완료");
-  } catch (error) {
-    console.error("지속성 설정 실패:", error);
-  }
-})();
-
-
-/* ============================================================
-   1. 데이터 로드 및 초기화
-============================================================ */
-setupCityEvents();
-setupRouteEvents();
-
-loadCities().then(() => {
-  loadRoutes().then(() => {
-    updateTotalSpent();
-    updateTimelineUI();
-  });
-});
-
-/* ============================================================
-   2. 맵 컨트롤
-============================================================ */
-document.getElementById("btn-world").onclick = () => {
-  map.flyTo([20, 0], 2.3, { duration: 1.5 });
-  map.once("moveend", () => Object.values(routeLines).forEach(r => r.line?.redraw()));
-};
-
-document.getElementById("btn-southamerica").onclick = () => {
-  map.flyTo([-10, -65], 4.3, { duration: 1.5 });
-  map.once("moveend", () => Object.values(routeLines).forEach(r => r.line?.redraw()));
-};
-
-document.querySelectorAll("button").forEach(btn => {
-  btn.addEventListener("touchstart", e => {
-    e.stopPropagation();
-    btn.click();
-  });
-});
-
-
-/* ============================================================
-   3. 🕒 시계 기능 (수동 선택 우선 모드)
-   - 타임라인 클릭 시 해당 도시 시간 표시
-   - 클릭 없으면 오늘 날짜 여행지 시간 표시
-============================================================ */
-function startClock() {
-  const elKorea = document.getElementById("time-korea");
-  const elLocal = document.getElementById("time-local");
-  
-  if (!elKorea || !elLocal) return;
-
-  setInterval(() => {
-    const now = new Date();
-
-    // 1. 한국 시간
-    const koTime = now.toLocaleTimeString("ko-KR", {
-      hour: "2-digit", minute: "2-digit", hour12: false,
-      timeZone: "Asia/Seoul"
-    });
-    elKorea.textContent = `🇰🇷 한국 ${koTime}`;
-
-    // 2. 현지 시간 계산
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-
-    let targetCity = clockTargetCity; 
-
-    if (!targetCity && cityMarkers) {
-      Object.values(cityMarkers).forEach(c => {
-        const d = c.data;
-        if (d.Stay_in <= todayStr && todayStr <= d.Stay_out) {
-          targetCity = d;
-        }
-      });
-    }
-
-    let localDate;
-    
-    if (targetCity) {
-      // ✈️ 여행 중 or 선택됨
-      const lng = targetCity.Coords[1]; 
-      
-      // 원래는 const였지만, 값을 수정해야 하므로 let으로 변경
-      let offsetHours = Math.round(lng / 15); 
-
-      // 🔥 [추가됨] 인천(또는 서울)인 경우 강제로 9(UTC+9)로 보정
-      if (targetCity.City === "인천" || targetCity.City === "서울") {
-        offsetHours = 9;
-      }
-
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      localDate = new Date(utc + (3600000 * offsetHours));
-      
-      elLocal.textContent = `📍 ${targetCity.City} ${formatTime(localDate)}`;
-      elLocal.style.color = "#d90429"; 
-
-    } else {
-      // 🏠 기본값: 한국 시간
-      const defaultOffset = 9; 
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      localDate = new Date(utc + (3600000 * defaultOffset));
-      
-      elLocal.textContent = `🌎 한국 ${formatTime(localDate)}`;
-      elLocal.style.color = "#222"; 
-    }
-
-  }, 1000);
-}
-
-function formatTime(dateObj) {
-  let h = dateObj.getHours();
-  let m = dateObj.getMinutes();
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-// 앱 시작 시 시계 가동
-startClock();
-
-
-/* ============================================================
-   4. 🔥 로그인 & 게스트 모드 로직
-============================================================ */
 const loginOverlay = document.getElementById("login-overlay");
 const btnLoginGoogle = document.getElementById("btn-login-google");
 const btnGuest = document.getElementById("btn-guest");
-const btnLogout = document.getElementById("btn-logout");
+const btnSession = document.getElementById("btn-session");
+const btnPublish = document.getElementById("btn-publish");
+const publishStatus = document.getElementById("publish-status");
+const privacyNotice = document.getElementById("privacy-notice");
+const timelineTitle = document.getElementById("timeline-title");
 
-// 구글 로그인 버튼
-btnLoginGoogle.onclick = async () => {
-  const provider = new GoogleAuthProvider();
+let guestChosen = false;
+let loadedMode = null;
+let loadingPromise = null;
 
-  // 버튼 비활성화 (중복 클릭 방지)
-  btnLoginGoogle.disabled = true;
-  btnLoginGoogle.innerText = "로그인 중...";
+function setLoginButtonBusy(isBusy) {
+  btnLoginGoogle.disabled = isBusy;
+  btnLoginGoogle.textContent = isBusy ? "로그인 중..." : "Google 로그인 (관리자)";
+}
+
+function applyModeUI(mode) {
+  document.body.classList.remove("locked-mode", "guest-mode", "admin-mode");
+  document.body.classList.add(`${mode}-mode`);
+
+  if (mode === "admin") {
+    loginOverlay.classList.add("hidden");
+    btnSession.classList.remove("hidden");
+    btnSession.textContent = "로그아웃";
+    privacyNotice.textContent = "관리자 모드: 정확한 일정·숙소·비용을 포함한 비공개 원본을 보고 있습니다.";
+    timelineTitle.textContent = "여행 타임라인 · 관리자";
+  } else if (mode === "guest") {
+    loginOverlay.classList.add("hidden");
+    btnSession.classList.remove("hidden");
+    btnSession.textContent = "관리자 로그인";
+    privacyNotice.textContent = "공개 보기: 방문 도시, 월 단위 시기, 이동 경로와 이동수단만 표시됩니다.";
+    timelineTitle.textContent = "여행 타임라인";
+  } else {
+    loginOverlay.classList.remove("hidden");
+    btnSession.classList.add("hidden");
+    privacyNotice.textContent = "여행이 종료된 뒤 공개한 요약 지도입니다.";
+  }
+}
+
+async function loadMode(mode) {
+  if (loadingPromise) await loadingPromise;
+  if (loadedMode === mode) return;
+
+  loadingPromise = (async () => {
+    setAccessMode(mode);
+    applyModeUI(mode);
+    clearRoutes();
+    clearCities();
+    publishStatus.textContent = "";
+
+    try {
+      await loadCities();
+      await loadRoutes();
+      updateTotalSpent();
+      updateTimelineUI();
+      loadedMode = mode;
+
+      if (mode === "guest" && Object.keys(cityMarkers).length === 0) {
+        document.getElementById("timeline-empty").textContent =
+          "아직 공개된 여행 데이터가 없습니다.";
+      }
+    } catch (error) {
+      console.error(error);
+      document.getElementById("timeline-empty").classList.remove("hidden");
+      document.getElementById("timeline-empty").textContent =
+        mode === "guest"
+          ? "공개 지도를 불러오지 못했습니다. Firestore 규칙과 공개 컬렉션을 확인하세요."
+          : "관리자 데이터를 불러오지 못했습니다. Firestore 규칙을 확인하세요.";
+    }
+  })();
 
   try {
-    console.log("🚀 팝업 로그인 시도...");
+    await loadingPromise;
+  } finally {
+    loadingPromise = null;
+  }
+}
+
+setupCityEvents();
+setupRouteEvents();
+document.addEventListener("travel-data-changed", () => {
+  updateTotalSpent();
+  updateTimelineUI();
+  publishStatus.textContent = "비공개 원본이 변경되었습니다. 게스트 화면에 반영하려면 ‘공개 지도 갱신’을 누르세요.";
+});
+
+setPersistence(auth, browserLocalPersistence).catch(error => {
+  console.error("로그인 지속성 설정 실패", error);
+});
+
+btnLoginGoogle.addEventListener("click", async () => {
+  setLoginButtonBusy(true);
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
     await signInWithPopup(auth, provider);
   } catch (error) {
-    console.error("로그인 실패:", error);
-    
-    btnLoginGoogle.disabled = false;
-    btnLoginGoogle.innerText = "Google 로그인 (관리자)";
-
-    if (error.code === 'auth/popup-blocked') {
-      alert("브라우저 팝업 차단이 감지되었습니다. 설정에서 팝업을 허용해주시거나, 다른 브라우저를 사용해주세요.");
-    } else if (error.code !== 'auth/cancelled-popup-request') {
-      alert("로그인 에러: " + error.message);
+    if (!["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(error.code)) {
+      alert(`로그인에 실패했습니다: ${error.message}`);
     }
-  }
-};
-
-// 게스트 모드
-btnGuest.onclick = () => {
-  loginOverlay.classList.add("hidden"); 
-  document.body.classList.add("guest-mode"); 
-  btnLogout.classList.add("hidden"); 
-};
-
-// 로그아웃
-btnLogout.onclick = () => {
-  signOut(auth).then(() => {
-    alert("로그아웃 되었습니다.");
-    location.reload(); 
-  });
-};
-
-// 인증 상태 감지
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("🎉 로그인 성공:", user.email);
-    
-    loginOverlay.classList.add("hidden");     
-    document.body.classList.remove("guest-mode"); 
-    btnLogout.classList.remove("hidden");     
-
-    btnLoginGoogle.disabled = false;
-    btnLoginGoogle.innerText = "Google 로그인 (관리자)";
-  } else {
-    console.log("🔒 로그아웃 상태");
+  } finally {
+    setLoginButtonBusy(false);
   }
 });
+
+btnGuest.addEventListener("click", async () => {
+  guestChosen = true;
+  if (auth.currentUser) await signOut(auth);
+  loadedMode = null;
+  await loadMode("guest");
+});
+
+btnSession.addEventListener("click", async () => {
+  if (isAdminMode()) {
+    guestChosen = false;
+    loadedMode = null;
+    await signOut(auth);
+    setAccessMode("locked");
+    applyModeUI("locked");
+  } else {
+    guestChosen = false;
+    setAccessMode("locked");
+    applyModeUI("locked");
+  }
+});
+
+btnPublish.addEventListener("click", async () => {
+  btnPublish.disabled = true;
+  publishStatus.textContent = "공개용 데이터를 갱신하는 중입니다...";
+  try {
+    const result = await publishPublicSnapshot();
+    publishStatus.textContent =
+      `공개 지도 갱신 완료: 도시 ${result.cityCount}개, 경로 ${result.routeCount}개`;
+  } catch (error) {
+    publishStatus.textContent = `갱신 실패: ${error.message}`;
+  } finally {
+    btnPublish.disabled = false;
+  }
+});
+
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    guestChosen = false;
+    if (isConfiguredAdmin(user.uid)) {
+      loadedMode = null;
+      await loadMode("admin");
+      return;
+    }
+
+    const uid = user.uid;
+    await signOut(auth);
+    setAccessMode("locked");
+    applyModeUI("locked");
+    alert(
+      "이 Google 계정은 관리자로 등록되어 있지 않습니다.\n\n" +
+      `Firebase UID: ${uid}\n\n` +
+      "이 UID를 js/config.js와 firestore.rules의 관리자 UID 자리에 동일하게 입력하세요."
+    );
+    return;
+  }
+
+  if (!guestChosen && getAccessMode() !== "guest") {
+    setAccessMode("locked");
+    applyModeUI("locked");
+  }
+});
+
+document.getElementById("btn-world").addEventListener("click", () => {
+  map.flyTo([20, 0], 2.3, { duration: 1.5 });
+  map.once("moveend", () => Object.values(routeLines).forEach(route => route.line?.redraw()));
+});
+
+document.getElementById("btn-southamerica").addEventListener("click", () => {
+  map.flyTo([-10, -65], 4.3, { duration: 1.5 });
+  map.once("moveend", () => Object.values(routeLines).forEach(route => route.line?.redraw()));
+});
+
+function formatTime(date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function startClock() {
+  const koreaElement = document.getElementById("time-korea");
+  const localElement = document.getElementById("time-local");
+
+  const tick = () => {
+    const now = new Date();
+    const koreaTime = now.toLocaleTimeString("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Seoul"
+    });
+    koreaElement.textContent = `🇰🇷 한국 ${koreaTime}`;
+
+    let targetCity = uiState.clockTargetCity;
+    if (!targetCity && isAdminMode()) {
+      const today = now.toISOString().slice(0, 10);
+      targetCity = Object.values(cityMarkers)
+        .map(city => city.data)
+        .find(city => city.Stay_in && city.Stay_out && city.Stay_in <= today && today <= city.Stay_out);
+    }
+
+    if (!targetCity || !Array.isArray(targetCity.Coords)) {
+      localElement.textContent = `🌎 한국 ${koreaTime}`;
+      return;
+    }
+
+    let offsetHours = Math.round(Number(targetCity.Coords[1]) / 15);
+    if (["인천", "서울"].includes(targetCity.City)) offsetHours = 9;
+
+    const utcMilliseconds = now.getTime() + now.getTimezoneOffset() * 60_000;
+    const localDate = new Date(utcMilliseconds + offsetHours * 3_600_000);
+    localElement.textContent = `📍 ${targetCity.City} ${formatTime(localDate)}`;
+  };
+
+  tick();
+  setInterval(tick, 1000);
+}
+
+applyModeUI("locked");
+startClock();
